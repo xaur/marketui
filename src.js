@@ -76,6 +76,8 @@ function initTicker(json) {
   Object.keys(json).forEach((pairName) => {
     var pair = json[pairName];
     pair.name = pairName;
+    let [base, quote] = pairName.split("_");
+    pair.label = quote + "/" + base;
     ticker[pair.id] = pair;
   });
   console.log("initialized ticker db");
