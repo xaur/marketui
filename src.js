@@ -1,15 +1,15 @@
 "use strict";
 
-var connectBtn = document.getElementById("connect-btn");
-var sendBtn = document.getElementById("send-btn");
-var pairList = document.getElementById("pair-list");
+const connectBtn = document.getElementById("connect-btn");
+const sendBtn = document.getElementById("send-btn");
+const pairList = document.getElementById("pair-list");
 
-var tickerUrl = "https://poloniex.com/public?command=returnTicker";
-var websocketUrl = "wss://api2.poloniex.com";
+const tickerUrl = "https://poloniex.com/public?command=returnTicker";
+const websocketUrl = "wss://api2.poloniex.com";
 
 // state
-var websocket;
-var abortController;
+let websocket;
+let abortController;
 
 function connect() {
   asyncFetchTicker(tickerUrl);
@@ -46,7 +46,7 @@ function onConnecting() {
 function onOnline() {
   sendBtn.onclick = function() {
     // subscribe to 24h trading volume updates sent every ~20 sec
-    var message = { "command": "subscribe", "channel": 1003 };
+    const message = { "command": "subscribe", "channel": 1003 };
     websocket.send(JSON.stringify(message));
   }
   sendBtn.disabled = false;
@@ -72,11 +72,11 @@ function disconnect() {
 // transform ticker response to key it by id and add names
 function initTicker(json) {
   console.log("initializing ticker db");
-  var ticker = {};
+  const ticker = {};
   Object.keys(json).forEach((pairName) => {
-    var pair = json[pairName];
+    const pair = json[pairName];
     pair.name = pairName;
-    let [base, quote] = pairName.split("_");
+    const [base, quote] = pairName.split("_");
     pair.label = quote + "/" + base;
     ticker[pair.id] = pair;
   });
@@ -92,10 +92,10 @@ function compareByLabel(a, b) {
 
 function populatePairsList(ticker) {
   console.log("populating pairs list");
-  var pairs = Object.keys(ticker).map((id) => ticker[id]);
+  const pairs = Object.keys(ticker).map((id) => ticker[id]);
   pairs.sort(compareByLabel);
   pairs.forEach((pair) => {
-    let row = pairList.insertRow();
+    const row = pairList.insertRow();
     row.insertCell().appendChild(document.createTextNode(pair.label));
     row.insertCell().appendChild(document.createTextNode(pair.last));
   });
@@ -114,7 +114,7 @@ function asyncFetchTicker(url) {
       }
     })
     .then(function(json) {
-      var ticker = initTicker(json);
+      const ticker = initTicker(json);
       populatePairsList(ticker);
     })
     .catch(function(e) {
