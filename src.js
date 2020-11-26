@@ -49,5 +49,4 @@ function disconnect() {
   sendBtn.disabled = true;
   websocket.close();
   websocket = null;
-  updateConnectBtn("Connect", connect);
 }
