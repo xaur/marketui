@@ -1,6 +1,7 @@
 "use strict";
 
 var connectBtn = document.getElementById("connect-btn");
+var sendBtn = document.getElementById("send-btn");
 var websocket;
 
 function connect() {
@@ -24,10 +25,14 @@ function connect() {
   websocket.onopen = function(evt) {
     console.log("onopen");
     updateConnectBtn("Disconnect", disconnect);
+    sendBtn.onclick = function() {
+      websocket.send("Hey hey heey");
+    }
+    sendBtn.disabled = false;
   };
 
   websocket.onmessage = function(evt) {
-    console.log("onmessage");
+    console.log("onmessage: " + evt.data);
   };
 }
 
@@ -37,6 +42,8 @@ function updateConnectBtn(label, onclick) {
 }
 
 function disconnect() {
+  sendBtn.onclick = null;
+  sendBtn.disabled = true;
   websocket.close();
   websocket = null;
   updateConnectBtn("Connect", connect);
