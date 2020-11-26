@@ -2,11 +2,18 @@
 
 var connectBtn = document.getElementById("connect-btn");
 var sendBtn = document.getElementById("send-btn");
-var uri = "wss://api2.poloniex.com";
+
+var tickerUrl = "https://poloniex.com/public?command=returnTicker";
+var websocketUrl = "wss://api2.poloniex.com";
+
+// state
 var websocket;
+var ticker;
+var abortController;
 
 function connect() {
-  websocket = new WebSocket(uri);
+  asyncFetchTicker(tickerUrl);
+  websocket = new WebSocket(websocketUrl);
   console.log("connecting to: " + websocketUrl);
 
   websocket.onerror = function(evt) {
@@ -45,7 +52,7 @@ function onOnline() {
   sendBtn.disabled = false;
   connectBtn.value = "Disconnect";
   connectBtn.onclick = disconnect;
-  console.log("connected to: " + uri);
+  console.log("connected to: " + websocketUrl);
 }
 
 function onOffline() {
@@ -54,9 +61,34 @@ function onOffline() {
   sendBtn.disabled = true;
   connectBtn.value = "Connect";
   connectBtn.onclick = connect;
-  console.log("disconnected from: " + uri);
+  console.log("disconnected from: " + websocketUrl);
 }
 
 function disconnect() {
   websocket.close();
+  abortController.abort();
+}
+
+function asyncFetchTicker(url) {
+  abortController = new AbortController();
+  fetch(url, { signal: abortController.signal })
+    .then(function(response) {
+      if (response.ok) {
+        console.log("got response ok, reading");
+        return response.json();
+      } else {
+        throw new Error("Failed to fetch");
+      }
+    })
+    .then(function(json) {
+      console.log("read json: " + json);
+    })
+    .catch(function(e) {
+      if (e.name === "AbortError") {
+        console.log("aborted: " + e);
+      } else {
+        console.error("error fetching: " + e);
+      }
+    });
+  console.log("fetch scheduled");
 }
