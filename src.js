@@ -96,10 +96,8 @@ function populatePairsList(ticker) {
   pairs.sort(compareByLabel);
   pairs.forEach((pair) => {
     let row = pairList.insertRow();
-    let labelCell = row.insertCell();
-    labelCell.appendChild(document.createTextNode(pair.label));
-    let priceCell = row.insertCell();
-    priceCell.appendChild(document.createTextNode(pair.last));
+    row.insertCell().appendChild(document.createTextNode(pair.label));
+    row.insertCell().appendChild(document.createTextNode(pair.last));
   });
   console.log("finished populating pairs list");
 }
