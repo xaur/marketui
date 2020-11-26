@@ -69,6 +69,18 @@ function disconnect() {
   abortController.abort();
 }
 
+// transform ticker response to key it by id and add names
+function initTicker(json) {
+  console.log("initializing ticker db");
+  ticker = {};
+  Object.keys(json).forEach((pairName) => {
+    var pair = json[pairName];
+    pair.name = pairName;
+    ticker[pair.id] = pair;
+  });
+  console.log("initialized ticker db");
+}
+
 function asyncFetchTicker(url) {
   abortController = new AbortController();
   fetch(url, { signal: abortController.signal })
@@ -81,7 +93,7 @@ function asyncFetchTicker(url) {
       }
     })
     .then(function(json) {
-      console.log("read json: " + json);
+      initTicker(json);
     })
     .catch(function(e) {
       if (e.name === "AbortError") {
