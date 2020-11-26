@@ -6,10 +6,8 @@ var uri = "wss://api2.poloniex.com";
 var websocket;
 
 function connect() {
-  onConnecting();
   websocket = new WebSocket(uri);
-
-  console.log("created websocket");
+  console.log("connecting to: " + websocketUrl);
 
   websocket.onerror = function(evt) {
     console.log("onerror");
@@ -28,12 +26,14 @@ function connect() {
   websocket.onmessage = function(evt) {
     console.log("onmessage: " + evt.data);
   };
+
+  onConnecting();
 }
 
 function onConnecting() {
-  console.log("connecting to: " + uri);
   connectBtn.value = "Cancel connect";
   connectBtn.onclick = disconnect;
+  console.log("connect button flipped to disconnect+cancel");
 }
 
 function onOnline() {
