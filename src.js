@@ -92,6 +92,7 @@ function compareByLabel(a, b) {
 
 function populatePairsList(ticker) {
   console.log("populating pairs list");
+  pairList.innerHTML = "";
   const pairs = Object.keys(ticker).map((id) => ticker[id]);
   pairs.sort(compareByLabel);
   pairs.forEach((pair) => {
