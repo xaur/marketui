@@ -8,7 +8,8 @@ function connect() {
   console.log("connecting");
   updateConnectBtn("Cancel connect", disconnect);
 
-  websocket = new WebSocket("ws://echo.websocket.org/");
+  var uri = "wss://api2.poloniex.com";
+  websocket = new WebSocket(uri);
 
   console.log("created websocket");
 
@@ -23,10 +24,12 @@ function connect() {
   };
 
   websocket.onopen = function(evt) {
-    console.log("onopen");
+    console.log("onopen, connected to " + uri);
     updateConnectBtn("Disconnect", disconnect);
     sendBtn.onclick = function() {
-      websocket.send("Hey hey heey");
+      // subscribe to 24h trading volume updates sent every ~20 sec
+      var message = { "command": "subscribe", "channel": 1003 };
+      websocket.send(JSON.stringify(message));
     }
     sendBtn.disabled = false;
   };
