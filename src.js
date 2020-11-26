@@ -13,7 +13,6 @@ function connect() {
 
   websocket.onerror = function(evt) {
     console.log("onerror");
-    onOffline();
   };
 
   websocket.onclose = function(evt) {
