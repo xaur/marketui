@@ -84,9 +84,17 @@ function initTicker(json) {
   return ticker;
 }
 
+function compareByLabel(a, b) {
+  if (a.label < b.label) { return -1; }
+  if (a.label > b.label) { return  1; }
+  return 0;
+}
+
 function populatePairsList(ticker) {
   console.log("populating pairs list");
-  Object.keys(ticker).map((id) => ticker[id]).forEach((pair) => {
+  var pairs = Object.keys(ticker).map((id) => ticker[id]);
+  pairs.sort(compareByLabel);
+  pairs.forEach((pair) => {
     let row = pairList.insertRow();
     let labelCell = row.insertCell();
     labelCell.appendChild(document.createTextNode(pair.label));
