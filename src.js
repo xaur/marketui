@@ -2,36 +2,28 @@
 
 var connectBtn = document.getElementById("connect-btn");
 var sendBtn = document.getElementById("send-btn");
+var uri = "wss://api2.poloniex.com";
 var websocket;
 
 function connect() {
-  console.log("connecting");
-  updateConnectBtn("Cancel connect", disconnect);
-
-  var uri = "wss://api2.poloniex.com";
+  onConnecting();
   websocket = new WebSocket(uri);
 
   console.log("created websocket");
 
   websocket.onerror = function(evt) {
     console.log("onerror");
-    updateConnectBtn("Connect", connect);
+    onOffline();
   };
 
   websocket.onclose = function(evt) {
     console.log("onclose");
-    updateConnectBtn("Connect", connect);
+    onOffline();
   };
 
   websocket.onopen = function(evt) {
-    console.log("onopen, connected to " + uri);
-    updateConnectBtn("Disconnect", disconnect);
-    sendBtn.onclick = function() {
-      // subscribe to 24h trading volume updates sent every ~20 sec
-      var message = { "command": "subscribe", "channel": 1003 };
-      websocket.send(JSON.stringify(message));
-    }
-    sendBtn.disabled = false;
+    console.log("onopen");
+    onOnline();
   };
 
   websocket.onmessage = function(evt) {
@@ -39,14 +31,33 @@ function connect() {
   };
 }
 
-function updateConnectBtn(label, onclick) {
-  connectBtn.value = label;
-  connectBtn.onclick = onclick;
+function onConnecting() {
+  console.log("connecting to: " + uri);
+  connectBtn.value = "Cancel connect";
+  connectBtn.onclick = disconnect;
+}
+
+function onOnline() {
+  sendBtn.onclick = function() {
+    // subscribe to 24h trading volume updates sent every ~20 sec
+    var message = { "command": "subscribe", "channel": 1003 };
+    websocket.send(JSON.stringify(message));
+  }
+  sendBtn.disabled = false;
+  connectBtn.value = "Disconnect";
+  connectBtn.onclick = disconnect;
+  console.log("connected to: " + uri);
+}
+
+function onOffline() {
+  websocket = null;
+  sendBtn.onclick = null;
+  sendBtn.disabled = true;
+  connectBtn.value = "Connect";
+  connectBtn.onclick = connect;
+  console.log("disconnected from: " + uri);
 }
 
 function disconnect() {
-  sendBtn.onclick = null;
-  sendBtn.disabled = true;
   websocket.close();
-  websocket = null;
 }
