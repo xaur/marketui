@@ -2,13 +2,13 @@
 
 var connectBtn = document.getElementById("connect-btn");
 var sendBtn = document.getElementById("send-btn");
+var pairList = document.getElementById("pair-list");
 
 var tickerUrl = "https://poloniex.com/public?command=returnTicker";
 var websocketUrl = "wss://api2.poloniex.com";
 
 // state
 var websocket;
-var ticker;
 var abortController;
 
 function connect() {
@@ -72,7 +72,7 @@ function disconnect() {
 // transform ticker response to key it by id and add names
 function initTicker(json) {
   console.log("initializing ticker db");
-  ticker = {};
+  var ticker = {};
   Object.keys(json).forEach((pairName) => {
     var pair = json[pairName];
     pair.name = pairName;
@@ -81,6 +81,19 @@ function initTicker(json) {
     ticker[pair.id] = pair;
   });
   console.log("initialized ticker db");
+  return ticker;
+}
+
+function populatePairsList(ticker) {
+  console.log("populating pairs list");
+  Object.keys(ticker).map((id) => ticker[id]).forEach((pair) => {
+    let row = pairList.insertRow();
+    let labelCell = row.insertCell();
+    labelCell.appendChild(document.createTextNode(pair.label));
+    let priceCell = row.insertCell();
+    priceCell.appendChild(document.createTextNode(pair.last));
+  });
+  console.log("finished populating pairs list");
 }
 
 function asyncFetchTicker(url) {
@@ -95,7 +108,8 @@ function asyncFetchTicker(url) {
       }
     })
     .then(function(json) {
-      initTicker(json);
+      var ticker = initTicker(json);
+      populatePairsList(ticker);
     })
     .catch(function(e) {
       if (e.name === "AbortError") {
