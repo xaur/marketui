@@ -11,6 +11,9 @@ const websocketUrl = "wss://api2.poloniex.com";
 let websocket;
 let abortController;
 
+sendBtn.disabled = false;
+sendBtn.onclick = function() { asyncFetchTicker(tickerUrl); };
+
 function connect() {
   asyncFetchTicker(tickerUrl);
   websocket = new WebSocket(websocketUrl);
@@ -44,12 +47,12 @@ function onConnecting() {
 }
 
 function onOnline() {
-  sendBtn.onclick = function() {
+  /* sendBtn.onclick = function() {
     // subscribe to 24h trading volume updates sent every ~20 sec
     const message = { "command": "subscribe", "channel": 1003 };
     websocket.send(JSON.stringify(message));
   }
-  sendBtn.disabled = false;
+  sendBtn.disabled = false; */
   connectBtn.value = "Disconnect";
   connectBtn.onclick = disconnect;
   console.log("connected to: " + websocketUrl);
@@ -57,8 +60,8 @@ function onOnline() {
 
 function onOffline() {
   websocket = null;
-  sendBtn.onclick = null;
-  sendBtn.disabled = true;
+  /* sendBtn.onclick = null;
+  sendBtn.disabled = true; */
   connectBtn.value = "Connect";
   connectBtn.onclick = connect;
   console.log("disconnected from: " + websocketUrl);
