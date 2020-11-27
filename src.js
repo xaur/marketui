@@ -2,7 +2,7 @@
 
 const connectBtn = document.getElementById("connect-btn");
 const sendBtn = document.getElementById("send-btn");
-const pairList = document.getElementById("pair-list");
+const marketsTable = document.getElementById("markets-table");
 
 const tickerUrl = "https://poloniex.com/public?command=returnTicker";
 const websocketUrl = "wss://api2.poloniex.com";
@@ -73,12 +73,12 @@ function disconnect() {
 function initTicker(json) {
   console.log("initializing ticker db");
   const ticker = {};
-  Object.keys(json).forEach((pairName) => {
-    const pair = json[pairName];
-    pair.name = pairName;
-    const [base, quote] = pairName.split("_");
-    pair.label = quote + "/" + base;
-    ticker[pair.id] = pair;
+  Object.keys(json).forEach((marketName) => {
+    const market = json[marketName];
+    market.name = marketName;
+    const [base, quote] = marketName.split("_");
+    market.label = quote + "/" + base;
+    ticker[market.id] = market;
   });
   console.log("initialized ticker db");
   return ticker;
@@ -90,17 +90,17 @@ function compareByLabel(a, b) {
   return 0;
 }
 
-function populatePairsList(ticker) {
-  console.log("populating pairs list");
-  pairList.innerHTML = "";
-  const pairs = Object.keys(ticker).map((id) => ticker[id]);
-  pairs.sort(compareByLabel);
-  pairs.forEach((pair) => {
-    const row = pairList.insertRow();
-    row.insertCell().appendChild(document.createTextNode(pair.label));
-    row.insertCell().appendChild(document.createTextNode(pair.last));
+function populateMarketsTable(ticker) {
+  console.log("populating markets table");
+  marketsTable.innerHTML = "";
+  const markets = Object.keys(ticker).map((id) => ticker[id]);
+  markets.sort(compareByLabel);
+  markets.forEach((market) => {
+    const row = marketsTable.insertRow();
+    row.insertCell().appendChild(document.createTextNode(market.label));
+    row.insertCell().appendChild(document.createTextNode(market.last));
   });
-  console.log("finished populating pairs list");
+  console.log("finished populating markets table");
 }
 
 function asyncFetchTicker(url) {
@@ -116,7 +116,7 @@ function asyncFetchTicker(url) {
     })
     .then(function(json) {
       const ticker = initTicker(json);
-      populatePairsList(ticker);
+      populateMarketsTable(ticker);
     })
     .catch(function(e) {
       if (e.name === "AbortError") {
