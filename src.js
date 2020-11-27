@@ -1,5 +1,7 @@
 "use strict";
 
+console.log("script eval begin");
+
 const connectBtn = document.getElementById("connect-btn");
 const sendBtn = document.getElementById("send-btn");
 const marketsTable = document.getElementById("markets-table");
@@ -11,8 +13,13 @@ const websocketUrl = "wss://api2.poloniex.com";
 let websocket;
 let abortController;
 
-sendBtn.disabled = false;
-sendBtn.onclick = function() { asyncFetchTicker(tickerUrl); };
+function main() {
+  sendBtn.disabled = false;
+  sendBtn.onclick = function() { asyncFetchTicker(tickerUrl); };
+  connectBtn.disabled = false;
+  connectBtn.onclick = connect;
+  console.log("UI ready");
+}
 
 function connect() {
   asyncFetchTicker(tickerUrl);
@@ -130,3 +137,6 @@ function asyncFetchTicker(url) {
     });
   console.log("fetch scheduled");
 }
+
+main();
+console.log("script eval end");
