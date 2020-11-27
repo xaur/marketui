@@ -1,26 +1,32 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" style="height: 100%">
 <head>
   <meta charset="utf-8">
   <title>Poclassin</title>
   <link rel="stylesheet" href="styles.css">
 </head>
-<body>
-  <div style="max-width: 800px;">
-    <div style="display: flex; flex-flow: row-reverse wrap; justify-content: space-between;">
-      <input id="connect-btn" type="button" value="Connect" onclick="connect()">
-      <input id="send-btn" type="button" value="Send" disabled>
-    </div>
-    <div style="display: flex; margin-top: 1em">
-      <div style="min-width: 300px; width: 492px; height: 300px; margin-right: 8px;" class="bghint"></div>
-      <div style="min-width: 200px; width: 300px; height: 300px;" class="bghint">
-        <table>
-          <thead><tr><th>market</th><th>price</th></thead>
-          <tbody id="markets-table"></tbody>
-        </table>
-      </div>
+
+<body style="height: 100%; margin: 0;">
+
+<div style="height: 100%; max-width: 800px; display: flex; flex-flow: column;">
+
+  <div style="display: flex; flex-flow: row-reverse wrap; justify-content: space-between;">
+    <input id="connect-btn" type="button" value="Connect" onclick="connect()">
+    <input id="send-btn" type="button" value="Send" disabled>
+  </div>
+
+  <div style="flex-grow: 1; margin-top: 0.5em; display: flex;">
+    <div style="margin-right: 8px; min-width: 300px; width: 492px;" class="bghint"></div>
+    <div style="min-width: 200px; width: 300px;" class="bghint">
+      <table>
+        <thead><tr><th>market</th><th>price</th></thead>
+        <tbody id="markets-table"></tbody>
+      </table>
     </div>
   </div>
-  <script src="src.js"></script>
+</div>
+
+<script src="src.js"></script>
+
 </body>
 </html>
