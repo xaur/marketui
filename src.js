@@ -20,7 +20,7 @@ const ws = {
 
 function main() {
   sendBtn.disabled = false;
-  sendBtn.onclick = asyncFetchTicker;
+  sendBtn.onclick = (e) => asyncFetchTicker();
   connectBtn.disabled = false;
   connectBtn.onclick = connect;
   console.log("UI ready");
@@ -42,12 +42,18 @@ function subscribeTicker() {
 }
 
 function connect() {
+  console.log("starting connect");
   if (ticker) {
     console.log("reusing existing ticker data");
     subscribeTicker();
   } else {
     console.log("fetching ticker for the first time");
-    asyncFetchTicker();    
+    asyncFetchTicker().then(function(ticker) {
+      if (ticker) {
+        // only subscribe to updates if ticker db was populated
+        subscribeTicker();
+      }
+    });    
   }
 
   console.log("connecting to: " + ws.url);
@@ -141,7 +147,7 @@ function asyncFetchTicker() {
   const url = tickerUrl;
   console.log("initiating fetch of " + url);
   abortController = new AbortController();
-  fetch(url, { signal: abortController.signal })
+  const promise = fetch(url, { signal: abortController.signal })
     .then(function(response) {
       if (response.ok) {
         console.log("response ok, status " + response.status + ", reading");
@@ -157,7 +163,7 @@ function asyncFetchTicker() {
       }
       ticker = initTicker(json);
       populateMarketsTable(ticker);
-      subscribeTicker();
+      return ticker;
     })
     .catch(function(e) {
       if (e.name === "AbortError") {
@@ -167,6 +173,7 @@ function asyncFetchTicker() {
       }
     });
   console.log("initiated fetch");
+  return promise;
 }
 
 main();
