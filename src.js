@@ -1,6 +1,6 @@
 "use strict";
 
-console.log("script eval begin");
+console.log("script eval start");
 
 const connectBtn = document.getElementById("connect-btn");
 const fetchMarketsBtn = document.getElementById("fetch-markets-btn");
@@ -29,11 +29,11 @@ function initUi() {
 function wsSend(data) {
   if (!ws.sock || ws.sock.readyState !== WebSocket.OPEN) {
     ws.queue.push(data);
-    console.log("queued ticker sub, length now " + ws.queue.length);
+    console.log("ticker subscription queued, queue size is now " + ws.queue.length);
     return;
   }
   const message = JSON.stringify(data);
-  console.log("sending " + message);
+  console.log("sending: " + message);
   ws.sock.send(message);
 }
 
@@ -42,12 +42,12 @@ function subscribeTicker() {
 }
 
 function connect() {
-  console.log("starting connect");
+  console.log("connect starting");
   if (ticker) {
     console.log("reusing existing ticker data");
     subscribeTicker();
   } else {
-    console.log("fetching ticker for the first time");
+    console.log("fetching ticker data for the first time");
     asyncFetchTicker().then(function(ticker) {
       if (ticker) {
         // only subscribe to updates if ticker db was populated
@@ -56,7 +56,7 @@ function connect() {
     });    
   }
 
-  console.log("connecting to: " + ws.url);
+  console.log("connecting to " + ws.url);
   ws.sock = new WebSocket(ws.url);
 
   ws.sock.onerror = (evt) => { console.log("websocket error: " + evt); };
@@ -70,12 +70,11 @@ function connect() {
 function onConnecting() {
   connectBtn.value = "Cancel connect";
   connectBtn.onclick = disconnect;
-  console.log("connect button flipped to disconnect+cancel");
 }
 
 function onConnected(evt) {
-  console.log("connected to: " + ws.url);
-  console.log("sending queue of size " + ws.queue.length);
+  console.log("connected to " + ws.url);
+  console.log("sending " + ws.queue.length + " queued messages");
   // drain queue, reset shared one to avoid infinite loop in disconnected state
   const queue = ws.queue;
   ws.queue = [];
@@ -86,7 +85,7 @@ function onConnected(evt) {
 }
 
 function onDisconnected(evt) {
-  console.log("disconnected from: " + ws.url);
+  console.log("disconnected from " + ws.url);
   ws.sock = null;
   connectBtn.value = "Connect";
   connectBtn.onclick = connect;
@@ -98,7 +97,7 @@ function onMessage(evt) {
   const channel = data[0];
   const arg2 = data[1];
   if (arg2 === 1) {
-    console.log("ack for channel " + channel);
+    console.log("server acked subscription to channel " + channel);
     return;
   }
 }
@@ -110,7 +109,7 @@ function disconnect() {
 
 // transform ticker response to key it by id and add names
 function initTicker(json) {
-  console.log("initializing ticker db");
+  console.log("ticker db initializing");
   const ticker = {};
   Object.keys(json).forEach((marketName) => {
     const market = json[marketName];
@@ -119,7 +118,7 @@ function initTicker(json) {
     market.label = quote + "/" + base;
     ticker[market.id] = market;
   });
-  console.log("initialized ticker db");
+  console.log("ticker db initialized");
   return ticker;
 }
 
@@ -130,7 +129,7 @@ function compareByLabel(a, b) {
 }
 
 function populateMarketsTable(ticker) {
-  console.log("populating markets table");
+  console.log("markets table populating");
   marketsTable.innerHTML = "";
   const markets = Object.keys(ticker).map((id) => ticker[id]);
   markets.sort(compareByLabel);
@@ -139,22 +138,22 @@ function populateMarketsTable(ticker) {
     row.insertCell().appendChild(document.createTextNode(market.label));
     row.insertCell().appendChild(document.createTextNode(market.last));
   });
-  console.log("finished populating markets table");
+  console.log("markets table populated");
 }
 
 function asyncFetchTicker() {
   // TODO: create or update existing ticker
   const url = tickerUrl;
-  console.log("initiating fetch of " + url);
+  console.log("ticker fetch initiating " + url);
   abortController = new AbortController();
   const promise = fetch(url, { signal: abortController.signal })
     .then(function(response) {
       if (response.ok) {
-        console.log("response ok, status " + response.status + ", reading");
+        console.log("ticker response reading (" + response.status + ")");
         return response.json();
       } else {
-        console.log("response not ok, throwing");
-        throw new Error("Failed to fetch, status " + response.status);
+        console.log("ticker response not ok");
+        throw new Error("Failed to fetch ticker, status " + response.status);
       }
     })
     .then(function(json) {
@@ -172,9 +171,9 @@ function asyncFetchTicker() {
         console.error("error fetching: " + e);
       }
     });
-  console.log("initiated fetch");
+  console.log("ticker fetch initiated");
   return promise;
 }
 
 initUi();
-console.log("script eval end");
+console.log("script eval finish");
