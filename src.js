@@ -6,6 +6,7 @@ const connectBtn = document.getElementById("connect-btn");
 const sendBtn = document.getElementById("send-btn");
 const marketsTable = document.getElementById("markets-table");
 
+// https://docs.poloniex.com/
 const tickerUrl = "https://poloniex.com/public?command=returnTicker";
 
 // state
@@ -138,17 +139,22 @@ function populateMarketsTable(ticker) {
 function asyncFetchTicker() {
   // TODO: create or update existing ticker
   const url = tickerUrl;
+  console.log("initiating fetch of " + url);
   abortController = new AbortController();
   fetch(url, { signal: abortController.signal })
     .then(function(response) {
       if (response.ok) {
-        console.log("got response ok, reading");
+        console.log("response ok, status " + response.status + ", reading");
         return response.json();
       } else {
-        throw new Error("Failed to fetch");
+        console.log("response not ok, throwing");
+        throw new Error("Failed to fetch, status " + response.status);
       }
     })
     .then(function(json) {
+      if (json.error) {
+        throw new Error("Poloniex API error: " + json.error);
+      }
       ticker = initTicker(json);
       populateMarketsTable(ticker);
       subscribeTicker();
@@ -160,7 +166,7 @@ function asyncFetchTicker() {
         console.error("error fetching: " + e);
       }
     });
-  console.log("fetch scheduled");
+  console.log("initiated fetch");
 }
 
 main();
