@@ -50,35 +50,10 @@ function connect() {
   websocket = new WebSocket(websocketUrl);
   console.log("connecting to: " + websocketUrl);
 
-  websocket.onerror = function(evt) {
-    console.log("onerror");
-  };
-
-  websocket.onclose = function(evt) {
-    console.log("disconnected from: " + websocketUrl);
-    onOffline();
-  };
-
-  websocket.onopen = function(evt) {
-    console.log("connected to: " + websocketUrl);
-    console.log("sending queue of size " + wsQueue.length);
-    // drain queue, reset shared one to avoid infinite loop in disconnected state
-    const queue = wsQueue;
-    wsQueue = [];
-    queue.forEach((req) => wsSend(req));
-    onOnline();
-  };
-
-  websocket.onmessage = function(evt) {
-    console.log("received: " + evt.data);
-    const data = JSON.parse(evt.data);
-    const channel = data[0];
-    const arg2 = data[1];
-    if (arg2 === 1) {
-      console.log("ack for channel " + channel);
-      return;
-    }
-  };
+  websocket.onerror = (evt) => { console.log("websocket error: " + evt); };
+  websocket.onclose = onDisconnected;
+  websocket.onopen = onConnected;
+  websocket.onmessage = onMessage;
 
   onConnecting();
 }
@@ -89,15 +64,34 @@ function onConnecting() {
   console.log("connect button flipped to disconnect+cancel");
 }
 
-function onOnline() {
+function onConnected(evt) {
+  console.log("connected to: " + websocketUrl);
+  console.log("sending queue of size " + wsQueue.length);
+  // drain queue, reset shared one to avoid infinite loop in disconnected state
+  const queue = wsQueue;
+  wsQueue = [];
+  queue.forEach((req) => wsSend(req));
+
   connectBtn.value = "Disconnect";
   connectBtn.onclick = disconnect;
 }
 
-function onOffline() {
+function onDisconnected(evt) {
+  console.log("disconnected from: " + websocketUrl);
   websocket = null;
   connectBtn.value = "Connect";
   connectBtn.onclick = connect;
+}
+
+function onMessage(evt) {
+  console.log("received: " + evt.data);
+  const data = JSON.parse(evt.data);
+  const channel = data[0];
+  const arg2 = data[1];
+  if (arg2 === 1) {
+    console.log("ack for channel " + channel);
+    return;
+  }
 }
 
 function disconnect() {
