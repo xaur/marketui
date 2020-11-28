@@ -10,19 +10,43 @@ const tickerUrl = "https://poloniex.com/public?command=returnTicker";
 const websocketUrl = "wss://api2.poloniex.com";
 
 // state
+let ticker;
 let websocket;
+let wsQueue = [];
 let abortController;
 
 function main() {
   sendBtn.disabled = false;
-  sendBtn.onclick = function() { asyncFetchTicker(tickerUrl); };
+  sendBtn.onclick = asyncFetchTicker;
   connectBtn.disabled = false;
   connectBtn.onclick = connect;
   console.log("UI ready");
 }
 
+function wsSend(data) {
+  if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+    wsQueue.push(data);
+    console.log("queued ticker sub, length now " + wsQueue.length);
+    return;
+  }
+  const message = JSON.stringify(data);
+  console.log("sending " + message);
+  websocket.send(message);
+}
+
+function subscribeTicker() {
+  wsSend({ "command": "subscribe", "channel": 1002 });
+}
+
 function connect() {
-  asyncFetchTicker(tickerUrl);
+  if (ticker) {
+    console.log("reusing existing ticker data");
+    subscribeTicker();
+  } else {
+    console.log("fetching ticker for the first time");
+    asyncFetchTicker();    
+  }
+
   websocket = new WebSocket(websocketUrl);
   console.log("connecting to: " + websocketUrl);
 
@@ -31,17 +55,29 @@ function connect() {
   };
 
   websocket.onclose = function(evt) {
-    console.log("onclose");
+    console.log("disconnected from: " + websocketUrl);
     onOffline();
   };
 
   websocket.onopen = function(evt) {
-    console.log("onopen");
+    console.log("connected to: " + websocketUrl);
+    console.log("sending queue of size " + wsQueue.length);
+    // drain queue, reset shared one to avoid infinite loop in disconnected state
+    const queue = wsQueue;
+    wsQueue = [];
+    queue.forEach((req) => wsSend(req));
     onOnline();
   };
 
   websocket.onmessage = function(evt) {
-    console.log("onmessage: " + evt.data);
+    console.log("received: " + evt.data);
+    const data = JSON.parse(evt.data);
+    const channel = data[0];
+    const arg2 = data[1];
+    if (arg2 === 1) {
+      console.log("ack for channel " + channel);
+      return;
+    }
   };
 
   onConnecting();
@@ -54,24 +90,14 @@ function onConnecting() {
 }
 
 function onOnline() {
-  /* sendBtn.onclick = function() {
-    // subscribe to 24h trading volume updates sent every ~20 sec
-    const message = { "command": "subscribe", "channel": 1003 };
-    websocket.send(JSON.stringify(message));
-  }
-  sendBtn.disabled = false; */
   connectBtn.value = "Disconnect";
   connectBtn.onclick = disconnect;
-  console.log("connected to: " + websocketUrl);
 }
 
 function onOffline() {
   websocket = null;
-  /* sendBtn.onclick = null;
-  sendBtn.disabled = true; */
   connectBtn.value = "Connect";
   connectBtn.onclick = connect;
-  console.log("disconnected from: " + websocketUrl);
 }
 
 function disconnect() {
@@ -113,7 +139,9 @@ function populateMarketsTable(ticker) {
   console.log("finished populating markets table");
 }
 
-function asyncFetchTicker(url) {
+function asyncFetchTicker() {
+  // TODO: create or update existing ticker
+  const url = tickerUrl;
   abortController = new AbortController();
   fetch(url, { signal: abortController.signal })
     .then(function(response) {
@@ -125,8 +153,9 @@ function asyncFetchTicker(url) {
       }
     })
     .then(function(json) {
-      const ticker = initTicker(json);
+      ticker = initTicker(json);
       populateMarketsTable(ticker);
+      subscribeTicker();
     })
     .catch(function(e) {
       if (e.name === "AbortError") {
