@@ -18,7 +18,7 @@ const ws = {
   queue: [],
 };
 
-function main() {
+function initUi() {
   fetchMarketsBtn.disabled = false;
   fetchMarketsBtn.onclick = (e) => asyncFetchTicker();
   connectBtn.disabled = false;
@@ -176,5 +176,5 @@ function asyncFetchTicker() {
   return promise;
 }
 
-main();
+initUi();
 console.log("script eval end");
