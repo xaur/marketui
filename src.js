@@ -7,13 +7,15 @@ const sendBtn = document.getElementById("send-btn");
 const marketsTable = document.getElementById("markets-table");
 
 const tickerUrl = "https://poloniex.com/public?command=returnTicker";
-const websocketUrl = "wss://api2.poloniex.com";
 
 // state
 let ticker;
-let websocket;
-let wsQueue = [];
 let abortController;
+const ws = {
+  url: "wss://api2.poloniex.com",
+  sock: undefined,
+  queue: [],
+};
 
 function main() {
   sendBtn.disabled = false;
@@ -24,14 +26,14 @@ function main() {
 }
 
 function wsSend(data) {
-  if (!websocket || websocket.readyState !== WebSocket.OPEN) {
-    wsQueue.push(data);
-    console.log("queued ticker sub, length now " + wsQueue.length);
+  if (!ws.sock || ws.sock.readyState !== WebSocket.OPEN) {
+    ws.queue.push(data);
+    console.log("queued ticker sub, length now " + ws.queue.length);
     return;
   }
   const message = JSON.stringify(data);
   console.log("sending " + message);
-  websocket.send(message);
+  ws.sock.send(message);
 }
 
 function subscribeTicker() {
@@ -47,13 +49,13 @@ function connect() {
     asyncFetchTicker();    
   }
 
-  websocket = new WebSocket(websocketUrl);
-  console.log("connecting to: " + websocketUrl);
+  console.log("connecting to: " + ws.url);
+  ws.sock = new WebSocket(ws.url);
 
-  websocket.onerror = (evt) => { console.log("websocket error: " + evt); };
-  websocket.onclose = onDisconnected;
-  websocket.onopen = onConnected;
-  websocket.onmessage = onMessage;
+  ws.sock.onerror = (evt) => { console.log("websocket error: " + evt); };
+  ws.sock.onclose = onDisconnected;
+  ws.sock.onopen = onConnected;
+  ws.sock.onmessage = onMessage;
 
   onConnecting();
 }
@@ -65,11 +67,11 @@ function onConnecting() {
 }
 
 function onConnected(evt) {
-  console.log("connected to: " + websocketUrl);
-  console.log("sending queue of size " + wsQueue.length);
+  console.log("connected to: " + ws.url);
+  console.log("sending queue of size " + ws.queue.length);
   // drain queue, reset shared one to avoid infinite loop in disconnected state
-  const queue = wsQueue;
-  wsQueue = [];
+  const queue = ws.queue;
+  ws.queue = [];
   queue.forEach((req) => wsSend(req));
 
   connectBtn.value = "Disconnect";
@@ -77,8 +79,8 @@ function onConnected(evt) {
 }
 
 function onDisconnected(evt) {
-  console.log("disconnected from: " + websocketUrl);
-  websocket = null;
+  console.log("disconnected from: " + ws.url);
+  ws.sock = null;
   connectBtn.value = "Connect";
   connectBtn.onclick = connect;
 }
@@ -95,7 +97,7 @@ function onMessage(evt) {
 }
 
 function disconnect() {
-  websocket.close();
+  ws.sock.close();
   abortController.abort();
 }
 
