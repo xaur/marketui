@@ -3,7 +3,7 @@
 console.log("script eval begin");
 
 const connectBtn = document.getElementById("connect-btn");
-const sendBtn = document.getElementById("send-btn");
+const fetchMarketsBtn = document.getElementById("fetch-markets-btn");
 const marketsTable = document.getElementById("markets-table");
 
 // https://docs.poloniex.com/
@@ -19,8 +19,8 @@ const ws = {
 };
 
 function main() {
-  sendBtn.disabled = false;
-  sendBtn.onclick = (e) => asyncFetchTicker();
+  fetchMarketsBtn.disabled = false;
+  fetchMarketsBtn.onclick = (e) => asyncFetchTicker();
   connectBtn.disabled = false;
   connectBtn.onclick = connect;
   console.log("UI ready");
