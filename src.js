@@ -29,6 +29,7 @@ let statsTickerPriceUnchanged = 0;
 
 // transform ticker response: key it by market id and add display names
 function initMarkets(json) {
+  console.time("markets db initialized");
   log("markets db initializing");
   const markets = {};
   Object.keys(json).forEach((marketName) => {
@@ -38,7 +39,8 @@ function initMarkets(json) {
     market.label = quote + "/" + base;
     markets[market.id] = market;
   });
-  log("markets db initialized");
+
+  console.timeEnd("markets db initialized");
   return markets;
 }
 
@@ -49,6 +51,7 @@ function compareByLabel(a, b) {
 }
 
 function createMarketsTable(markets) {
+  console.time("markets table created");
   log("markets table creating");
   marketsTable.innerHTML = "";
   const marketsArr = Object.keys(markets).map((id) => markets[id]);
@@ -64,15 +67,17 @@ function createMarketsTable(markets) {
     td2.appendChild(document.createTextNode(market.last));
     marketIdToPriceCell[market.id] = td2;
   });
-  log("markets table created");
+  console.timeEnd("markets table created");
 }
 
 function asyncFetchMarkets() {
   const url = tickerUrl;
   log("ticker fetch initiating " + url);
   abortController = new AbortController();
+  console.time("ticker fetch");
   const promise = fetch(url, { signal: abortController.signal })
     .then(function(response) {
+      console.timeLog("ticker fetch");
       if (response.ok) {
         log("ticker response reading (" + response.status + ")");
         return response.json();
@@ -82,6 +87,7 @@ function asyncFetchMarkets() {
       }
     })
     .then(function(json) {
+      console.timeEnd("ticker fetch");
       if (json.error) {
         throw new Error("Poloniex API error: " + json.error);
       }
@@ -128,7 +134,7 @@ function disconnect() {
 }
 
 function onConnected(evt) {
-  log("connected to " + ws.url);
+  console.timeEnd("websocket connected");
   log("sending " + ws.queue.length + " queued messages");
   // drain queue, reset shared one to avoid infinite loop in disconnected state
   const queue = ws.queue;
@@ -209,6 +215,7 @@ function connect() {
     });    
   }
 
+  console.time("websocket connected");
   log("connecting to " + ws.url);
   ws.sock = new WebSocket(ws.url);
 
