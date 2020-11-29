@@ -55,6 +55,10 @@ function createMarketsTable(markets) {
   marketsArr.sort(compareByLabel);
   marketsArr.forEach((market) => {
     const row = marketsTable.insertRow();
+    if (market.isFrozen === "1") {
+      log("detected frozen market: " + market.label);
+      row.classList.add("frozen");
+    }
     row.insertCell().appendChild(document.createTextNode(market.label));
     const td2 = row.insertCell()
     td2.appendChild(document.createTextNode(market.last));
