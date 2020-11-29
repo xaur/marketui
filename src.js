@@ -27,104 +27,7 @@ let statsHeartbeats = 0;
 let statsTickerPriceChanges = 0;
 let statsTickerPriceUnchanged = 0;
 
-function initUi() {
-  fetchMarketsBtn.disabled = false;
-  fetchMarketsBtn.onclick = (e) => asyncFetchMarkets();
-  connectBtn.disabled = false;
-  connectBtn.onclick = connect;
-  log("UI ready");
-}
-
-function wsSend(data) {
-  if (!ws.sock || ws.sock.readyState !== WebSocket.OPEN) {
-    ws.queue.push(data);
-    log("markets subscription queued, queue size is now " + ws.queue.length);
-    return;
-  }
-  const message = JSON.stringify(data);
-  log("sending: " + message);
-  ws.sock.send(message);
-}
-
-function subscribeMarkets() {
-  wsSend({ "command": "subscribe", "channel": 1002 });
-}
-
-function connect() {
-  log("connect starting");
-  if (markets) {
-    log("reusing existing markets data");
-    subscribeMarkets();
-  } else {
-    log("fetching markets data for the first time");
-    asyncFetchMarkets().then(function(markets) {
-      if (markets) {
-        // only subscribe to updates if markets db was populated
-        subscribeMarkets();
-      }
-    });    
-  }
-
-  log("connecting to " + ws.url);
-  ws.sock = new WebSocket(ws.url);
-
-  ws.sock.onerror = (evt) => { log("websocket error: " + evt); };
-  ws.sock.onclose = onDisconnected;
-  ws.sock.onopen = onConnected;
-  ws.sock.onmessage = onMessage;
-
-  onConnecting();
-}
-
-function onConnecting() {
-  connectBtn.value = "Cancel connect";
-  connectBtn.onclick = disconnect;
-}
-
-function onConnected(evt) {
-  log("connected to " + ws.url);
-  log("sending " + ws.queue.length + " queued messages");
-  // drain queue, reset shared one to avoid infinite loop in disconnected state
-  const queue = ws.queue;
-  ws.queue = [];
-  queue.forEach((req) => wsSend(req));
-
-  connectBtn.value = "Disconnect";
-  connectBtn.onclick = disconnect;
-}
-
-function onDisconnected(evt) {
-  log("disconnected from " + ws.url);
-  ws.sock = null;
-  connectBtn.value = "Connect";
-  connectBtn.onclick = connect;
-}
-
-function onMessage(evt) {
-  const data = JSON.parse(evt.data);
-  const [channel, seq] = data;
-  if (channel === 1010) {
-    statsHeartbeats += 1;
-    if (statsHeartbeats % 10 === 0) { 
-      log("heartbeats: " + statsHeartbeats);
-    }
-  } else if (channel === 1002) {
-    if (seq === 1) {
-      log("ticker subscription server ack");
-      return;
-    }
-    updateMarkets(data);
-  } else {
-    log("WARN got data we didn't subscribe for: " + data);
-  }
-}
-
-function disconnect() {
-  ws.sock.close();
-  abortController.abort();
-}
-
-// transform ticker response to key it by id and add display names
+// transform ticker response: key it by market id and add display names
 function initMarkets(json) {
   log("markets db initializing");
   const markets = {};
@@ -137,37 +40,6 @@ function initMarkets(json) {
   });
   log("markets db initialized");
   return markets;
-}
-
-function updateMarkets(updates) {
-  // updates look like: [ <chan id>, null,
-  // [ <pair id>, "<last trade price>", "<lowest ask>", "<highest bid>",
-  //   "<percent change in last 24 h>", "<base currency volume in last 24 h>",
-  //   "<quote currency volume in last 24 h>", <is frozen>,
-  //   "<highest trade price in last 24 h>", "<lowest trade price in last 24 h>"
-  // ], ... ]
-  for (let i = 2; i < updates.length; i++) {
-    const [mid, lastPrice] = updates[i];
-    const market = markets[mid];
-    const prevPrice = market.last;
-    if (prevPrice === lastPrice) {
-      statsTickerPriceUnchanged += 1;
-      if (statsTickerPriceUnchanged % 200 === 0) {
-        log("ticker price unchanged: " + statsTickerPriceUnchanged);
-      }
-    } else {
-      statsTickerPriceChanges += 1;
-      if (statsTickerPriceChanges % 10 === 0) {
-        log("ticker price changes: " + statsTickerPriceChanges);
-      }
-      market.last = lastPrice;
-      marketIdToPriceCell[mid].firstChild.nodeValue = lastPrice;
-      log(market.label + " " + prevPrice + " to " + lastPrice);
-    }
-  }
-  if (updates.length > 2 + 1) {
-    log("got more than 1 ticker update: " + (updates.length - 2));
-  }
 }
 
 function compareByLabel(a, b) {
@@ -222,6 +94,134 @@ function asyncFetchMarkets() {
     });
   log("ticker fetch initiated");
   return promise;
+}
+
+function wsSend(data) {
+  if (!ws.sock || ws.sock.readyState !== WebSocket.OPEN) {
+    ws.queue.push(data);
+    log("markets subscription queued, queue size is now " + ws.queue.length);
+    return;
+  }
+  const message = JSON.stringify(data);
+  log("sending: " + message);
+  ws.sock.send(message);
+}
+
+function subscribeMarkets() {
+  wsSend({ "command": "subscribe", "channel": 1002 });
+}
+
+function onDisconnected(evt) {
+  log("disconnected from " + ws.url);
+  ws.sock = null;
+  connectBtn.value = "Connect";
+  connectBtn.onclick = connect;
+}
+
+function disconnect() {
+  ws.sock.close();
+  abortController.abort();
+}
+
+function onConnected(evt) {
+  log("connected to " + ws.url);
+  log("sending " + ws.queue.length + " queued messages");
+  // drain queue, reset shared one to avoid infinite loop in disconnected state
+  const queue = ws.queue;
+  ws.queue = [];
+  queue.forEach((req) => wsSend(req));
+
+  connectBtn.value = "Disconnect";
+  connectBtn.onclick = disconnect;
+}
+
+function updateMarkets(updates) {
+  // updates look like: [ <chan id>, null,
+  // [ <pair id>, "<last trade price>", "<lowest ask>", "<highest bid>",
+  //   "<percent change in last 24 h>", "<base currency volume in last 24 h>",
+  //   "<quote currency volume in last 24 h>", <is frozen>,
+  //   "<highest trade price in last 24 h>", "<lowest trade price in last 24 h>"
+  // ], ... ]
+  for (let i = 2; i < updates.length; i++) {
+    const [mid, lastPrice] = updates[i];
+    const market = markets[mid];
+    const prevPrice = market.last;
+    if (prevPrice === lastPrice) {
+      statsTickerPriceUnchanged += 1;
+      if (statsTickerPriceUnchanged % 200 === 0) {
+        log("ticker price unchanged: " + statsTickerPriceUnchanged);
+      }
+    } else {
+      statsTickerPriceChanges += 1;
+      if (statsTickerPriceChanges % 10 === 0) {
+        log("ticker price changes: " + statsTickerPriceChanges);
+      }
+      market.last = lastPrice;
+      marketIdToPriceCell[mid].firstChild.nodeValue = lastPrice;
+      log(market.label + " " + prevPrice + " to " + lastPrice);
+    }
+  }
+  if (updates.length > 2 + 1) {
+    log("got more than 1 ticker update: " + (updates.length - 2));
+  }
+}
+
+function onMessage(evt) {
+  const data = JSON.parse(evt.data);
+  const [channel, seq] = data;
+  if (channel === 1010) {
+    statsHeartbeats += 1;
+    if (statsHeartbeats % 10 === 0) { 
+      log("heartbeats: " + statsHeartbeats);
+    }
+  } else if (channel === 1002) {
+    if (seq === 1) {
+      log("ticker subscription server ack");
+      return;
+    }
+    updateMarkets(data);
+  } else {
+    log("WARN got data we didn't subscribe for: " + data);
+  }
+}
+
+function onConnecting() {
+  connectBtn.value = "Cancel connect";
+  connectBtn.onclick = disconnect;
+}
+
+function connect() {
+  log("connect starting");
+  if (markets) {
+    log("reusing existing markets data");
+    subscribeMarkets();
+  } else {
+    log("fetching markets data for the first time");
+    asyncFetchMarkets().then(function(markets) {
+      if (markets) {
+        // only subscribe to updates if markets db was populated
+        subscribeMarkets();
+      }
+    });    
+  }
+
+  log("connecting to " + ws.url);
+  ws.sock = new WebSocket(ws.url);
+
+  ws.sock.onerror = (evt) => { log("websocket error: " + evt); };
+  ws.sock.onclose = onDisconnected;
+  ws.sock.onopen = onConnected;
+  ws.sock.onmessage = onMessage;
+
+  onConnecting();
+}
+
+function initUi() {
+  fetchMarketsBtn.disabled = false;
+  fetchMarketsBtn.onclick = (e) => asyncFetchMarkets();
+  connectBtn.disabled = false;
+  connectBtn.onclick = connect;
+  log("UI ready");
 }
 
 initUi();
