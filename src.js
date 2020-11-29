@@ -10,7 +10,7 @@ const marketsTable = document.getElementById("markets-table");
 const tickerUrl = "https://poloniex.com/public?command=returnTicker";
 
 // state
-let ticker;
+let markets;
 let abortController;
 const ws = {
   url: "wss://api2.poloniex.com",
@@ -20,7 +20,7 @@ const ws = {
 
 function initUi() {
   fetchMarketsBtn.disabled = false;
-  fetchMarketsBtn.onclick = (e) => asyncFetchTicker();
+  fetchMarketsBtn.onclick = (e) => asyncFetchMarkets();
   connectBtn.disabled = false;
   connectBtn.onclick = connect;
   console.log("UI ready");
@@ -29,7 +29,7 @@ function initUi() {
 function wsSend(data) {
   if (!ws.sock || ws.sock.readyState !== WebSocket.OPEN) {
     ws.queue.push(data);
-    console.log("ticker subscription queued, queue size is now " + ws.queue.length);
+    console.log("markets subscription queued, queue size is now " + ws.queue.length);
     return;
   }
   const message = JSON.stringify(data);
@@ -37,21 +37,21 @@ function wsSend(data) {
   ws.sock.send(message);
 }
 
-function subscribeTicker() {
+function subscribeMarkets() {
   wsSend({ "command": "subscribe", "channel": 1002 });
 }
 
 function connect() {
   console.log("connect starting");
-  if (ticker) {
-    console.log("reusing existing ticker data");
-    subscribeTicker();
+  if (markets) {
+    console.log("reusing existing markets data");
+    subscribeMarkets();
   } else {
-    console.log("fetching ticker data for the first time");
-    asyncFetchTicker().then(function(ticker) {
-      if (ticker) {
-        // only subscribe to updates if ticker db was populated
-        subscribeTicker();
+    console.log("fetching markets data for the first time");
+    asyncFetchMarkets().then(function(markets) {
+      if (markets) {
+        // only subscribe to updates if markets db was populated
+        subscribeMarkets();
       }
     });    
   }
@@ -107,19 +107,19 @@ function disconnect() {
   abortController.abort();
 }
 
-// transform ticker response to key it by id and add names
-function initTicker(json) {
-  console.log("ticker db initializing");
-  const ticker = {};
+// transform ticker response to key it by id and add display names
+function initMarkets(json) {
+  console.log("markets db initializing");
+  const markets = {};
   Object.keys(json).forEach((marketName) => {
     const market = json[marketName];
     market.name = marketName;
     const [base, quote] = marketName.split("_");
     market.label = quote + "/" + base;
-    ticker[market.id] = market;
+    markets[market.id] = market;
   });
-  console.log("ticker db initialized");
-  return ticker;
+  console.log("markets db initialized");
+  return markets;
 }
 
 function compareByLabel(a, b) {
@@ -128,12 +128,12 @@ function compareByLabel(a, b) {
   return 0;
 }
 
-function populateMarketsTable(ticker) {
+function populateMarketsTable(markets) {
   console.log("markets table populating");
   marketsTable.innerHTML = "";
-  const markets = Object.keys(ticker).map((id) => ticker[id]);
-  markets.sort(compareByLabel);
-  markets.forEach((market) => {
+  const marketsArr = Object.keys(markets).map((id) => markets[id]);
+  marketsArr.sort(compareByLabel);
+  marketsArr.forEach((market) => {
     const row = marketsTable.insertRow();
     row.insertCell().appendChild(document.createTextNode(market.label));
     row.insertCell().appendChild(document.createTextNode(market.last));
@@ -141,8 +141,8 @@ function populateMarketsTable(ticker) {
   console.log("markets table populated");
 }
 
-function asyncFetchTicker() {
-  // TODO: create or update existing ticker
+function asyncFetchMarkets() {
+  // TODO: create or update existing markets
   const url = tickerUrl;
   console.log("ticker fetch initiating " + url);
   abortController = new AbortController();
@@ -160,9 +160,9 @@ function asyncFetchTicker() {
       if (json.error) {
         throw new Error("Poloniex API error: " + json.error);
       }
-      ticker = initTicker(json);
-      populateMarketsTable(ticker);
-      return ticker;
+      markets = initMarkets(json);
+      populateMarketsTable(markets);
+      return markets;
     })
     .catch(function(e) {
       if (e.name === "AbortError") {
