@@ -1,6 +1,8 @@
 "use strict";
 
-console.log("script eval start");
+const log = console.log;
+
+log("script eval start");
 
 // UI access
 const connectBtn = document.getElementById("connect-btn");
@@ -30,17 +32,17 @@ function initUi() {
   fetchMarketsBtn.onclick = (e) => asyncFetchMarkets();
   connectBtn.disabled = false;
   connectBtn.onclick = connect;
-  console.log("UI ready");
+  log("UI ready");
 }
 
 function wsSend(data) {
   if (!ws.sock || ws.sock.readyState !== WebSocket.OPEN) {
     ws.queue.push(data);
-    console.log("markets subscription queued, queue size is now " + ws.queue.length);
+    log("markets subscription queued, queue size is now " + ws.queue.length);
     return;
   }
   const message = JSON.stringify(data);
-  console.log("sending: " + message);
+  log("sending: " + message);
   ws.sock.send(message);
 }
 
@@ -49,12 +51,12 @@ function subscribeMarkets() {
 }
 
 function connect() {
-  console.log("connect starting");
+  log("connect starting");
   if (markets) {
-    console.log("reusing existing markets data");
+    log("reusing existing markets data");
     subscribeMarkets();
   } else {
-    console.log("fetching markets data for the first time");
+    log("fetching markets data for the first time");
     asyncFetchMarkets().then(function(markets) {
       if (markets) {
         // only subscribe to updates if markets db was populated
@@ -63,10 +65,10 @@ function connect() {
     });    
   }
 
-  console.log("connecting to " + ws.url);
+  log("connecting to " + ws.url);
   ws.sock = new WebSocket(ws.url);
 
-  ws.sock.onerror = (evt) => { console.log("websocket error: " + evt); };
+  ws.sock.onerror = (evt) => { log("websocket error: " + evt); };
   ws.sock.onclose = onDisconnected;
   ws.sock.onopen = onConnected;
   ws.sock.onmessage = onMessage;
@@ -80,8 +82,8 @@ function onConnecting() {
 }
 
 function onConnected(evt) {
-  console.log("connected to " + ws.url);
-  console.log("sending " + ws.queue.length + " queued messages");
+  log("connected to " + ws.url);
+  log("sending " + ws.queue.length + " queued messages");
   // drain queue, reset shared one to avoid infinite loop in disconnected state
   const queue = ws.queue;
   ws.queue = [];
@@ -92,7 +94,7 @@ function onConnected(evt) {
 }
 
 function onDisconnected(evt) {
-  console.log("disconnected from " + ws.url);
+  log("disconnected from " + ws.url);
   ws.sock = null;
   connectBtn.value = "Connect";
   connectBtn.onclick = connect;
@@ -104,16 +106,16 @@ function onMessage(evt) {
   if (channel === 1010) {
     statsHeartbeats += 1;
     if (statsHeartbeats % 10 === 0) { 
-      console.log("heartbeats: " + statsHeartbeats);
+      log("heartbeats: " + statsHeartbeats);
     }
   } else if (channel === 1002) {
     if (seq === 1) {
-      console.log("ticker subscription server ack");
+      log("ticker subscription server ack");
       return;
     }
     updateMarkets(data);
   } else {
-    console.log("WARN got data we didn't subscribe for: " + data);
+    log("WARN got data we didn't subscribe for: " + data);
   }
 }
 
@@ -124,7 +126,7 @@ function disconnect() {
 
 // transform ticker response to key it by id and add display names
 function initMarkets(json) {
-  console.log("markets db initializing");
+  log("markets db initializing");
   const markets = {};
   Object.keys(json).forEach((marketName) => {
     const market = json[marketName];
@@ -133,7 +135,7 @@ function initMarkets(json) {
     market.label = quote + "/" + base;
     markets[market.id] = market;
   });
-  console.log("markets db initialized");
+  log("markets db initialized");
   return markets;
 }
 
@@ -151,20 +153,20 @@ function updateMarkets(updates) {
     if (prevPrice === lastPrice) {
       statsTickerPriceUnchanged += 1;
       if (statsTickerPriceUnchanged % 200 === 0) {
-        console.log("ticker price unchanged: " + statsTickerPriceUnchanged);
+        log("ticker price unchanged: " + statsTickerPriceUnchanged);
       }
     } else {
       statsTickerPriceChanges += 1;
       if (statsTickerPriceChanges % 10 === 0) {
-        console.log("ticker price changes: " + statsTickerPriceChanges);
+        log("ticker price changes: " + statsTickerPriceChanges);
       }
       market.last = lastPrice;
       marketIdToPriceCell[mid].firstChild.nodeValue = lastPrice;
-      console.log(market.label + " " + prevPrice + " to " + lastPrice);
+      log(market.label + " " + prevPrice + " to " + lastPrice);
     }
   }
   if (updates.length > 2 + 1) {
-    console.log("got more than 1 ticker update: " + (updates.length - 2));
+    log("got more than 1 ticker update: " + (updates.length - 2));
   }
 }
 
@@ -175,7 +177,7 @@ function compareByLabel(a, b) {
 }
 
 function createMarketsTable(markets) {
-  console.log("markets table creating");
+  log("markets table creating");
   marketsTable.innerHTML = "";
   const marketsArr = Object.keys(markets).map((id) => markets[id]);
   marketsArr.sort(compareByLabel);
@@ -186,20 +188,20 @@ function createMarketsTable(markets) {
     td2.appendChild(document.createTextNode(market.last));
     marketIdToPriceCell[market.id] = td2;
   });
-  console.log("markets table created");
+  log("markets table created");
 }
 
 function asyncFetchMarkets() {
   const url = tickerUrl;
-  console.log("ticker fetch initiating " + url);
+  log("ticker fetch initiating " + url);
   abortController = new AbortController();
   const promise = fetch(url, { signal: abortController.signal })
     .then(function(response) {
       if (response.ok) {
-        console.log("ticker response reading (" + response.status + ")");
+        log("ticker response reading (" + response.status + ")");
         return response.json();
       } else {
-        console.log("ticker response not ok");
+        log("ticker response not ok");
         throw new Error("Failed to fetch ticker, status " + response.status);
       }
     })
@@ -213,14 +215,14 @@ function asyncFetchMarkets() {
     })
     .catch(function(e) {
       if (e.name === "AbortError") {
-        console.log("aborted: " + e);
+        log("aborted: " + e);
       } else {
         console.error("error fetching: " + e);
       }
     });
-  console.log("ticker fetch initiated");
+  log("ticker fetch initiated");
   return promise;
 }
 
 initUi();
-console.log("script eval finish");
+log("script eval finish");
