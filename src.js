@@ -6,7 +6,7 @@ log("script eval start");
 
 // UI access
 const connectBtn = document.getElementById("connect-btn");
-const fetchMarketsBtn = document.getElementById("fetch-markets-btn");
+const watchMarketsBtn = document.getElementById("watch-markets-btn");
 const marketsTable = document.getElementById("markets-table");
 const marketIdToPriceCell = {};
 
@@ -15,6 +15,9 @@ const tickerUrl = "https://poloniex.com/public?command=returnTicker";
 
 // state
 let markets;
+let marketsUpdateEnabled = false;
+let marketsUpdateInterval = 3000;
+let marketsTimeout;
 let abortController;
 const ws = {
   url: "wss://api2.poloniex.com",
@@ -79,7 +82,7 @@ function asyncFetchMarkets() {
     .then(function(response) {
       console.timeLog("ticker fetch");
       if (response.ok) {
-        log("ticker response reading (" + response.status + ")");
+        log("ticker response " + response.status + ", reading");
         return response.json();
       } else {
         log("ticker response not ok");
@@ -104,6 +107,30 @@ function asyncFetchMarkets() {
     });
   log("ticker fetch initiated");
   return promise;
+}
+
+function fetchMarketsLoop() {
+  asyncFetchMarkets().then(function(markets) {
+    if (marketsUpdateEnabled) {
+      log("scheduling markets update");
+      marketsTimeout = setTimeout(fetchMarketsLoop, marketsUpdateInterval);
+    }
+  });
+}
+
+function toggleMarketsUpdating() {
+  if (marketsUpdateEnabled) {
+    log("markets updating disabling");
+    marketsUpdateEnabled = false;   // prevent fetchMarketsLoop from setting new timeouts
+    clearTimeout(marketsTimeout);   // cancel pending timeouts
+    abortController.abort();        // cancel active fetches
+    watchMarketsBtn.value = "Watch markets";
+  } else {
+    log("markets updating enabling");
+    marketsUpdateEnabled = true;
+    fetchMarketsLoop();
+    watchMarketsBtn.value = "Unwatch markets";
+  }
 }
 
 function wsSend(data) {
@@ -228,8 +255,8 @@ function connect() {
 }
 
 function initUi() {
-  fetchMarketsBtn.disabled = false;
-  fetchMarketsBtn.onclick = (e) => asyncFetchMarkets();
+  watchMarketsBtn.disabled = false;
+  watchMarketsBtn.onclick = toggleMarketsUpdating;
   connectBtn.disabled = false;
   connectBtn.onclick = connect;
   log("UI ready");
