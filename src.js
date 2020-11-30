@@ -143,8 +143,10 @@ function updateMarketsTable(changes) {
     log("WARN updateMarketsTable called with empty changes");
     return;
   }
+  const updateStart = performance.now();
 
-  Object.keys(changes.changed).forEach((mid) => {
+  const changedKeys = Object.keys(changes.changed);
+  changedKeys.forEach((mid) => {
     const marketChange = changes.changed[mid];
     const td = marketIdToPriceCell[mid];
 
@@ -180,6 +182,7 @@ function updateMarketsTable(changes) {
       }
     }
   });
+
   if (Object.keys(changes.added).length > 0) {
     log("market additions detected: " + JSON.stringify(changes.added));
   }
@@ -188,7 +191,9 @@ function updateMarketsTable(changes) {
   }
 
   const now = performance.now();
-  log("markets table updated " + (now - statsMarketsTableLastUpdated) + " ms since last time");
+  log("markets table updated with " + changedKeys.length + " changes in "
+      + (now - updateStart) + " ms, " + (now - statsMarketsTableLastUpdated)
+      + " ms since last time");
   statsMarketsTableLastUpdated = now;
 }
 
