@@ -13,8 +13,6 @@ const marketIdToPriceCell = {};
 // https://docs.poloniex.com/
 const tickerUrl = "https://poloniex.com/public?command=returnTicker";
 
-const TRACKED_TICKER_CHANGES = new Set(["last", "isFrozen"]);
-
 // state
 let markets;
 let marketsUpdateEnabled = false;
@@ -32,11 +30,21 @@ let statsHeartbeats = 0;
 let statsTickerPriceChanges = 0;
 let statsTickerPriceUnchanged = 0;
 
-// mutate ticker response item into our market item
+// convert ticker data we care about
+function trackedTickerData(tickerItem) {
+  return {
+    isActive: (tickerItem.isFrozen !== "1"),
+    last: tickerItem.last,
+  }
+}
+
 function toMarketItem(tickerItem, name) {
-  tickerItem.name = name;
+  const mi = trackedTickerData(tickerItem);
+  mi.id = tickerItem.id;
+  mi.name = name;
   const [base, quote] = name.split("_");
-  tickerItem.label = quote + "/" + base;
+  mi.label = quote + "/" + base;
+  return mi;
 }
 
 // transform ticker response: key it by market id and add display names
@@ -45,16 +53,13 @@ function initMarkets(tickerResp) {
   log("markets db initializing");
   const markets = {};
   Object.keys(tickerResp).forEach((marketName) => {
-    const market = tickerResp[marketName];
-    toMarketItem(market, marketName);
+    const market = toMarketItem(tickerResp[marketName], marketName);
     markets[market.id] = market;
   });
   console.timeEnd("markets db initialized");
   return markets;
 }
 
-// ugly: changes carry only tracked fields while added and removed have all
-// todo: reduce markets db to what we care about
 function updateMarkets(tickerResp) {
   console.time("markets db updated");
   const changed = {}, added = {}, removed = {};
@@ -66,19 +71,20 @@ function updateMarkets(tickerResp) {
     const mid = tickerItem.id;
     const market = markets[mid];
     if (market) { // exists, possibly changed item
-      for (const key in tickerItem) {
+      const ttd = trackedTickerData(tickerItem);
+      for (const key in ttd) {
         const o = market[key];
-        const n = tickerItem[key];
-        if (TRACKED_TICKER_CHANGES.has(key) && n !== o) {
+        const n = ttd[key];
+        if (n !== o) {
           if (!changed[mid]) { changed[mid] = {}; } // init
           changed[mid][key] = [o, n];
         }
-        market[key] = tickerItem[key];
+        market[key] = ttd[key];
       }
     } else { // added item
-      toMarketItem(tickerItem, marketName);
-      markets[mid] = tickerItem;
-      added[mid] = tickerItem;
+      const newMarket = toMarketItem(tickerItem, marketName);
+      markets[mid] = newMarket;
+      added[mid] = newMarket;
     }
     oldIds.delete(String(mid)); // using string ids for now
   });
@@ -109,7 +115,7 @@ function createMarketsTable(markets) {
   marketsArr.sort(compareByLabel);
   marketsArr.forEach((market) => {
     const row = marketsTable.insertRow();
-    if (market.isFrozen === "1") {
+    if (!market.isActive) {
       log("detected frozen market: " + market.label);
       row.classList.add("frozen");
     }
@@ -141,10 +147,10 @@ function updateMarketsTable(changes) {
       }
     }
 
-    const isFrozen = marketChange["isFrozen"];
-    if (isFrozen) {
-      const [o, n] = isFrozen;
-      if (n === "1") {
+    const isActiveChange = marketChange["isActive"];
+    if (isActiveChange) {
+      const [o, n] = isActiveChange;
+      if (n === true) {
         td.parentNode.classList.add("frozen");
       } else {
         td.parentNode.classList.remove("frozen");
