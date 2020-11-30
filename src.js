@@ -13,6 +13,8 @@ const marketIdToPriceCell = {};
 // https://docs.poloniex.com/
 const tickerUrl = "https://poloniex.com/public?command=returnTicker";
 
+const TRACKED_TICKER_CHANGES = new Set(["last", "isFrozen"]);
+
 // state
 let markets;
 let marketsUpdateEnabled = false;
@@ -30,21 +32,67 @@ let statsHeartbeats = 0;
 let statsTickerPriceChanges = 0;
 let statsTickerPriceUnchanged = 0;
 
+// mutate ticker response item into our market item
+function toMarketItem(tickerItem, name) {
+  tickerItem.name = name;
+  const [base, quote] = name.split("_");
+  tickerItem.label = quote + "/" + base;
+}
+
 // transform ticker response: key it by market id and add display names
-function initMarkets(json) {
+function initMarkets(tickerResp) {
   console.time("markets db initialized");
   log("markets db initializing");
   const markets = {};
-  Object.keys(json).forEach((marketName) => {
-    const market = json[marketName];
-    market.name = marketName;
-    const [base, quote] = marketName.split("_");
-    market.label = quote + "/" + base;
+  Object.keys(tickerResp).forEach((marketName) => {
+    const market = tickerResp[marketName];
+    toMarketItem(market, marketName);
     markets[market.id] = market;
   });
-
   console.timeEnd("markets db initialized");
   return markets;
+}
+
+// ugly: changes carry only tracked fields while added and removed have all
+// todo: reduce markets db to what we care about
+function updateMarkets(tickerResp) {
+  console.time("markets db updated");
+  const changed = {}, added = {}, removed = {};
+  const oldIds = new Set(Object.keys(markets));
+
+  // compute keyset difference along the way
+  Object.keys(tickerResp).forEach((marketName) => {
+    const tickerItem = tickerResp[marketName];
+    const mid = tickerItem.id;
+    const market = markets[mid];
+    if (market) { // exists, possibly changed item
+      for (const key in tickerItem) {
+        const o = market[key];
+        const n = tickerItem[key];
+        if (TRACKED_TICKER_CHANGES.has(key) && n !== o) {
+          if (!changed[mid]) { changed[mid] = {}; } // init
+          changed[mid][key] = [o, n];
+        }
+        market[key] = tickerItem[key];
+      }
+    } else { // added item
+      toMarketItem(tickerItem, marketName);
+      markets[mid] = tickerItem;
+      added[mid] = tickerItem;
+    }
+    oldIds.delete(String(mid)); // using string ids for now
+  });
+
+  for (const id of oldIds) { // deleted items
+    removed[id] = markets[id];
+    delete markets[id];
+  }
+
+  console.timeEnd("markets db updated");
+  log("detected " + Object.keys(changed).length +
+      " markets with changes to tracked fields: " +
+      JSON.stringify(changed));
+  return { changed, added, removed };
 }
 
 function compareByLabel(a, b) {
@@ -73,6 +121,45 @@ function createMarketsTable(markets) {
   console.timeEnd("markets table created");
 }
 
+function updateMarketsTable(changes) {
+  console.time("markets table updated");
+  marketsTable.querySelectorAll(".changed").forEach((el) => {
+    el.classList.remove("changed", "positive", "negative");
+  });
+  Object.keys(changes.changed).forEach((mid) => {
+    const marketChange = changes.changed[mid];
+    const td = marketIdToPriceCell[mid];
+
+    const priceChange = marketChange["last"];
+    if (priceChange) {
+      const [o, n] = priceChange;
+      td.firstChild.nodeValue = n;
+      if (Number(n) > Number(o)) {
+        td.classList.add("changed", "positive");
+      } else {
+        td.classList.add("changed", "negative");
+      }
+    }
+
+    const isFrozen = marketChange["isFrozen"];
+    if (isFrozen) {
+      const [o, n] = isFrozen;
+      if (n === "1") {
+        td.parentNode.classList.add("frozen");
+      } else {
+        td.parentNode.classList.remove("frozen");
+      }
+    }
+  });
+  if (Object.keys(changes.added).length > 0) {
+    log("market additions detected: " + JSON.stringify(changes.added));
+  }
+  if (Object.keys(changes.removed).length > 0) {
+    log("market removals detected: " + JSON.stringify(changes.removed));
+  }
+  console.timeEnd("markets table updated");
+}
+
 function asyncFetchMarkets() {
   const url = tickerUrl;
   log("ticker fetch initiating " + url);
@@ -94,8 +181,13 @@ function asyncFetchMarkets() {
       if (json.error) {
         throw new Error("Poloniex API error: " + json.error);
       }
-      markets = initMarkets(json);
-      createMarketsTable(markets);
+      if (markets) {
+        const changes = updateMarkets(json);
+        updateMarketsTable(changes);
+      } else {
+        markets = initMarkets(json);
+        createMarketsTable(markets);
+      }
       return markets;
     })
     .catch(function(e) {
@@ -120,13 +212,13 @@ function fetchMarketsLoop() {
 
 function toggleMarketsUpdating() {
   if (marketsUpdateEnabled) {
-    log("markets updating disabling");
+    log("markets updating stopping");
     marketsUpdateEnabled = false;   // prevent fetchMarketsLoop from setting new timeouts
     clearTimeout(marketsTimeout);   // cancel pending timeouts
     abortController.abort();        // cancel active fetches
     watchMarketsBtn.value = "Watch markets";
   } else {
-    log("markets updating enabling");
+    log("markets updating starting");
     marketsUpdateEnabled = true;
     fetchMarketsLoop();
     watchMarketsBtn.value = "Unwatch markets";
@@ -172,7 +264,8 @@ function onConnected(evt) {
   connectBtn.onclick = disconnect;
 }
 
-function updateMarkets(updates) {
+// todo: separate computations of changes and updating of table
+function updateMarketsWs(updates) {
   // updates look like: [ <chan id>, null,
   // [ <pair id>, "<last trade price>", "<lowest ask>", "<highest bid>",
   //   "<percent change in last 24 h>", "<base currency volume in last 24 h>",
@@ -216,7 +309,7 @@ function onMessage(evt) {
       log("ticker subscription server ack");
       return;
     }
-    updateMarkets(data);
+    updateMarketsWs(data);
   } else {
     log("WARN got data we didn't subscribe for: " + data);
   }

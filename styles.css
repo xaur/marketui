@@ -6,6 +6,14 @@ html {
   color: #91bbbc;
 }
 
+.positive {
+  color: #27892f;
+}
+
+.negative {
+  color: #c02a1d;
+}
+
 /* debug stuff below */
 
 .bghint {
