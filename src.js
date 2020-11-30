@@ -143,11 +143,11 @@ function updateMarketsTable(changes) {
     return;
   }
   //console.time("markets table updated");
-  /*
+
   marketsTable.querySelectorAll(".changed").forEach((el) => {
     el.classList.remove("changed", "positive", "negative");
-  }); // todo: try this again when other bugs are fixed
-  */
+  });
+
   Object.keys(changes.changed).forEach((mid) => {
     const marketChange = changes.changed[mid];
     const td = marketIdToPriceCell[mid];
@@ -156,9 +156,7 @@ function updateMarketsTable(changes) {
     if (priceChange) {
       const [o, n] = priceChange;
       td.firstChild.nodeValue = n;
-      const nn = Number(n), no = Number(o);
-      td.classList.remove("positive", "negative");
-      if (nn > no) {
+      if (Number(n) > Number(o)) {
         td.classList.add("changed", "positive");
       } else {
         td.classList.add("changed", "negative");
