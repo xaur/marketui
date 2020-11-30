@@ -127,7 +127,7 @@ function createMarketsTable(markets) {
     const row = marketsTable.insertRow();
     if (!market.isActive) {
       log("detected frozen market: " + market.label);
-      row.classList.add("frozen");
+      row.classList.add("inactive");
     }
     row.insertCell().appendChild(document.createTextNode(market.label));
     const td2 = row.insertCell()
@@ -170,10 +170,10 @@ function updateMarketsTable(changes) {
       const [o, n] = isActiveChange;
       if (n === true) {
         log("market unfrozen: " + markets[mid].label);
-        td.parentNode.classList.remove("frozen");
+        td.parentNode.classList.remove("inactive");
       } else {
         log("market frozen: " + markets[mid].label);
-        td.parentNode.classList.add("frozen");
+        td.parentNode.classList.add("inactive");
       }
     }
   });
