@@ -290,7 +290,6 @@ function onConnected(evt) {
   connectBtn.onclick = disconnect;
 }
 
-// todo: test unknown market by manually hacking state
 function updateMarketsWs(updates) {
   const changed = {}, added = {}, removed = {};
   // updates look like: [ <chan id>, null,
@@ -307,7 +306,6 @@ function updateMarketsWs(updates) {
 
     const market = markets[mid];
     if (!market) {
-      log("WARN new market detected with id=" + mid);
       added[mid] = {
         id: mid,
         name: "UNKNOWN_" + mid,
