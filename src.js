@@ -29,6 +29,7 @@ const ws = {
 let statsHeartbeats = 0;
 let statsTickerPriceChanges = 0;
 let statsTickerPriceUnchanged = 0;
+let statsMarketsTableLastUpdated = performance.now();
 
 // convert ticker data we care about
 function trackedTickerData(tickerItem) {
@@ -142,7 +143,6 @@ function updateMarketsTable(changes) {
     log("WARN updateMarketsTable called with empty changes");
     return;
   }
-  //console.time("markets table updated");
 
   marketsTable.querySelectorAll(".changed").forEach((el) => {
     el.classList.remove("changed", "positive", "negative");
@@ -181,7 +181,10 @@ function updateMarketsTable(changes) {
   if (Object.keys(changes.removed).length > 0) {
     log("market removals detected: " + JSON.stringify(changes.removed));
   }
-  //console.timeEnd("markets table updated");
+
+  const now = performance.now();
+  log("markets table updated " + (now - statsMarketsTableLastUpdated) + " ms since last time");
+  statsMarketsTableLastUpdated = now;
 }
 
 function asyncFetchMarkets() {
