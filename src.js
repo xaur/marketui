@@ -413,6 +413,9 @@ function connect() {
 }
 
 function initUi() {
+  const updateBtn = document.getElementById("update-markets-btn");
+  updateBtn.disabled = false;
+  updateBtn.onclick = (e => asyncFetchMarkets());
   watchMarketsBtn.disabled = false;
   watchMarketsBtn.onclick = toggleMarketsUpdating;
   connectBtn.disabled = false;
