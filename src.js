@@ -144,13 +144,18 @@ function updateMarketsTable(changes) {
     return;
   }
 
-  marketsTable.querySelectorAll(".changed").forEach((el) => {
-    el.classList.remove("changed", "positive", "negative");
-  });
-
   Object.keys(changes.changed).forEach((mid) => {
     const marketChange = changes.changed[mid];
     const td = marketIdToPriceCell[mid];
+
+    // clear existing styles
+    td.classList.remove("changed", "positive", "negative");
+
+    // HACK: to restart a possibly running CSS animation we have to trigger a
+    // reflow between removing and adding classes
+    // thanks to https://css-tricks.com/restart-css-animation/
+    // TEST it may be faster to do only one reflow per update
+    void td.offsetWidth;
 
     const priceChange = marketChange["last"];
     if (priceChange) {

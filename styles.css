@@ -6,10 +6,25 @@ html {
   color: #91bbbc;
 }
 
+/* animations */
+
+@keyframes positive-update {
+  from { background-color: #ceebd3; }
+}
+
+@keyframes negative-update {
+  from { background-color: #f6d4d1; }
+}
+
+.changed {
+  animation-duration: 1.2s;
+  animation-timing-function: cubic-bezier(.9,.03,.69,.22);
+}
+
 .positive {
-  color: #27892f;
+  animation-name: positive-update;
 }
 
 .negative {
-  color: #c02a1d;
+  animation-name: negative-update;
 }
