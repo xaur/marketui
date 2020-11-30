@@ -169,9 +169,11 @@ function updateMarketsTable(changes) {
     if (isActiveChange) {
       const [o, n] = isActiveChange;
       if (n === true) {
-        td.parentNode.classList.add("frozen");
-      } else {
+        log("market unfrozen: " + markets[mid].label);
         td.parentNode.classList.remove("frozen");
+      } else {
+        log("market frozen: " + markets[mid].label);
+        td.parentNode.classList.add("frozen");
       }
     }
   });
@@ -288,7 +290,6 @@ function onConnected(evt) {
   connectBtn.onclick = disconnect;
 }
 
-// todo: test frozen -> normal
 // todo: test unknown market by manually hacking state
 function updateMarketsWs(updates) {
   const changed = {}, added = {}, removed = {};
