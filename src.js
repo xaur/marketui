@@ -60,6 +60,11 @@ function initMarkets(tickerResp) {
   return markets;
 }
 
+function isEmpty(obj) {
+  for (const prop in obj) { return false; }
+  return true;
+}
+
 function updateMarkets(tickerResp) {
   console.time("markets db updated");
   const changed = {}, added = {}, removed = {};
@@ -98,7 +103,12 @@ function updateMarkets(tickerResp) {
   log("detected " + Object.keys(changed).length +
       " markets with changes to tracked fields: " +
       JSON.stringify(changed));
-  return { changed, added, removed };
+
+  if (isEmpty(changed) && isEmpty(added) && isEmpty(removed)) {
+    return null;
+  } else {
+    return { changed, added, removed };
+  }
 }
 
 function compareByLabel(a, b) {
@@ -128,10 +138,16 @@ function createMarketsTable(markets) {
 }
 
 function updateMarketsTable(changes) {
-  console.time("markets table updated");
+  if (!changes) {
+    log("WARN updateMarketsTable called with empty changes");
+    return;
+  }
+  //console.time("markets table updated");
+  /*
   marketsTable.querySelectorAll(".changed").forEach((el) => {
     el.classList.remove("changed", "positive", "negative");
-  });
+  }); // todo: try this again when other bugs are fixed
+  */
   Object.keys(changes.changed).forEach((mid) => {
     const marketChange = changes.changed[mid];
     const td = marketIdToPriceCell[mid];
@@ -140,7 +156,9 @@ function updateMarketsTable(changes) {
     if (priceChange) {
       const [o, n] = priceChange;
       td.firstChild.nodeValue = n;
-      if (Number(n) > Number(o)) {
+      const nn = Number(n), no = Number(o);
+      td.classList.remove("positive", "negative");
+      if (nn > no) {
         td.classList.add("changed", "positive");
       } else {
         td.classList.add("changed", "negative");
@@ -163,7 +181,7 @@ function updateMarketsTable(changes) {
   if (Object.keys(changes.removed).length > 0) {
     log("market removals detected: " + JSON.stringify(changes.removed));
   }
-  console.timeEnd("markets table updated");
+  //console.timeEnd("markets table updated");
 }
 
 function asyncFetchMarkets() {
@@ -189,7 +207,7 @@ function asyncFetchMarkets() {
       }
       if (markets) {
         const changes = updateMarkets(json);
-        updateMarketsTable(changes);
+        if (changes) { updateMarketsTable(changes); }
       } else {
         markets = initMarkets(json);
         createMarketsTable(markets);
@@ -270,8 +288,10 @@ function onConnected(evt) {
   connectBtn.onclick = disconnect;
 }
 
-// todo: separate computations of changes and updating of table
+// todo: test frozen -> normal
+// todo: test unknown market by manually hacking state
 function updateMarketsWs(updates) {
+  const changed = {}, added = {}, removed = {};
   // updates look like: [ <chan id>, null,
   // [ <pair id>, "<last trade price>", "<lowest ask>", "<highest bid>",
   //   "<percent change in last 24 h>", "<base currency volume in last 24 h>",
@@ -279,26 +299,54 @@ function updateMarketsWs(updates) {
   //   "<highest trade price in last 24 h>", "<lowest trade price in last 24 h>"
   // ], ... ]
   for (let i = 2; i < updates.length; i++) {
-    const [mid, lastPrice] = updates[i];
+    const update = updates[i];
+    const mid = update[0];
+    const lastPrice = update[1];
+    const isActive = (update[7] !== 1);
+
     const market = markets[mid];
+    if (!market) {
+      log("WARN new market detected with id=" + mid);
+      added[mid] = {
+        id: mid,
+        name: "UNKNOWN_" + mid,
+        label: "UNKNOWN/UNKNOWN",
+        last: lastPrice,
+      };
+      continue;
+    }
+
     const prevPrice = market.last;
     if (prevPrice === lastPrice) {
       statsTickerPriceUnchanged += 1;
-      if (statsTickerPriceUnchanged % 200 === 0) {
+      if (statsTickerPriceUnchanged % 400 === 0) {
         log("ticker price unchanged: " + statsTickerPriceUnchanged);
       }
     } else {
       statsTickerPriceChanges += 1;
-      if (statsTickerPriceChanges % 10 === 0) {
+      if (statsTickerPriceChanges % 40 === 0) {
         log("ticker price changes: " + statsTickerPriceChanges);
       }
+      if (!changed[mid]) { changed[mid] = {}; } // init
+      changed[mid]["last"] = [prevPrice, lastPrice];
       market.last = lastPrice;
-      marketIdToPriceCell[mid].firstChild.nodeValue = lastPrice;
-      log(market.label + " " + prevPrice + " to " + lastPrice);
+    }
+
+    const prevActive = market.isActive;
+    if (prevActive !== isActive) {
+      if (!changed[mid]) { changed[mid] = {}; } // init
+      changed[mid]["isActive"] = [prevActive, isActive];
+      market.isActive = isActive;
     }
   }
   if (updates.length > 2 + 1) {
-    log("got more than 1 ticker update: " + (updates.length - 2));
+    log("ODD got more than 1 ticker update: " + (updates.length - 2));
+  }
+
+  if (isEmpty(changed) && isEmpty(added) && isEmpty(removed)) {
+    return null;
+  } else {
+    return { changed, added, removed };
   }
 }
 
@@ -315,7 +363,8 @@ function onMessage(evt) {
       log("ticker subscription server ack");
       return;
     }
-    updateMarketsWs(data);
+    const changes = updateMarketsWs(data);
+    if (changes) { updateMarketsTable(changes); }
   } else {
     log("WARN got data we didn't subscribe for: " + data);
   }
