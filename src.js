@@ -336,6 +336,7 @@ function updateMarketsWs(updates) {
         name: "UNKNOWN_" + mid,
         label: "UNKNOWN/UNKNOWN",
         last: lastPrice,
+        isActive: isActive,
       };
       continue;
     }
