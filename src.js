@@ -66,6 +66,18 @@ function isEmpty(obj) {
   return true;
 }
 
+function addMarketChanges(changed, mid, market, update) {
+  for (const key in update) {
+    const o = market[key];
+    const n = update[key];
+    if (n !== o) {
+      if (!changed[mid]) { changed[mid] = {}; } // init
+      changed[mid][key] = [o, n];
+      market[key] = n;
+    }
+  }
+}
+
 function updateMarkets(tickerResp) {
   console.time("markets db updated");
   const changed = {}, added = {}, removed = {};
@@ -78,15 +90,7 @@ function updateMarkets(tickerResp) {
     const market = markets[mid];
     if (market) { // exists, possibly changed item
       const ttd = trackedTickerData(tickerItem);
-      for (const key in ttd) {
-        const o = market[key];
-        const n = ttd[key];
-        if (n !== o) {
-          if (!changed[mid]) { changed[mid] = {}; } // init
-          changed[mid][key] = [o, n];
-          market[key] = n;
-        }
-      }
+      addMarketChanges(changed, mid, market, ttd);
     } else { // added item
       const newMarket = toMarketItem(tickerItem, marketName);
       markets[mid] = newMarket;
@@ -326,24 +330,30 @@ function updateMarketsWs(updates) {
   for (let i = 2; i < updates.length; i++) {
     const update = updates[i];
     const mid = update[0];
-    const lastPrice = update[1];
-    const isActive = (update[7] !== 1);
+
+    const trackedData = {
+      isActive: (update[7] !== 1),
+      last: update[1],
+    }
 
     const market = markets[mid];
-    if (!market) {
+    if (!market) { // added market
       const newMarket = {
         id: mid,
         name: "UNKNOWN_" + mid,
         label: "UNKNOWN/UNKNOWN",
-        last: lastPrice,
-        isActive: isActive,
+        last: trackedData.last,
+        isActive: trackedData.isActive,
       };
       added[mid] = newMarket;
       markets[mid] = newMarket;
       continue;
     }
 
+    addMarketChanges(changed, mid, market, trackedData);
+
     const prevPrice = market.last;
+    const lastPrice = trackedData.last;
     if (prevPrice === lastPrice) {
       statsTickerPriceUnchanged += 1;
       if (statsTickerPriceUnchanged % 400 === 0) {
@@ -354,18 +364,9 @@ function updateMarketsWs(updates) {
       if (statsTickerPriceChanges % 40 === 0) {
         log("ticker price changes: " + statsTickerPriceChanges);
       }
-      if (!changed[mid]) { changed[mid] = {}; } // init
-      changed[mid]["last"] = [prevPrice, lastPrice];
-      market.last = lastPrice;
-    }
-
-    const prevActive = market.isActive;
-    if (prevActive !== isActive) {
-      if (!changed[mid]) { changed[mid] = {}; } // init
-      changed[mid]["isActive"] = [prevActive, isActive];
-      market.isActive = isActive;
     }
   }
+
   if (updates.length > 2 + 1) {
     log("ODD got more than 1 ticker update: " + (updates.length - 2));
   }
