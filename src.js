@@ -66,7 +66,6 @@ function isEmpty(obj) {
   return true;
 }
 
-// warn: this also mutates existing market
 function addMarketChanges(changed, mid, market, update) {
   for (const key in update) {
     const o = market[key];
@@ -74,7 +73,6 @@ function addMarketChanges(changed, mid, market, update) {
     if (n !== o) {
       if (!changed[mid]) { changed[mid] = {}; } // init
       changed[mid][key] = [o, n];
-      market[key] = n;
     }
   }
 }
@@ -87,8 +85,7 @@ function changesOrNull(changed, added, removed) {
   }
 }
 
-function updateMarkets(tickerResp) {
-  console.time("markets db updated");
+function marketsChangesHttp(tickerResp) {
   const changed = {}, added = {}, removed = {};
   const oldIds = new Set(Object.keys(markets));
 
@@ -102,18 +99,13 @@ function updateMarkets(tickerResp) {
       addMarketChanges(changed, mid, market, ttd);
       oldIds.delete(String(mid)); // using string ids for now
     } else { // added item
-      const newMarket = toMarketItem(tickerItem, marketName);
-      markets[mid] = newMarket;
-      added[mid] = newMarket;
+      added[mid] = toMarketItem(tickerItem, marketName);
     }
   });
 
   for (const id of oldIds) { // deleted items
     removed[id] = markets[id];
-    delete markets[id];
   }
-
-  console.timeEnd("markets db updated");
 
   return changesOrNull(changed, added, removed);
 }
@@ -142,6 +134,25 @@ function createMarketsTable(markets) {
     marketIdToPriceCell[market.id] = td2;
   });
   console.timeEnd("markets table created");
+}
+
+function updateMarkets(changes) {
+  console.time("markets db updated");
+  for (const mid in changes.changed) {
+    const market = markets[mid];
+    const mchange = changes.changed[mid];
+    for (const key in mchange) {
+      const [o, n] = mchange[key];
+      market[key] = n;
+    }
+  }
+  for (const mid in changes.added) {
+    markets[mid] = changes.added[mid];
+  }
+  for (const mid in changes.removed) {
+    delete markets[mid];
+  }
+  console.timeEnd("markets db updated");
 }
 
 function updateMarketsTable(changes) {
@@ -242,8 +253,11 @@ function asyncFetchMarkets() {
         throw new Error("Poloniex API error: " + json.error);
       }
       if (markets) {
-        const changes = updateMarkets(json);
-        if (changes) { updateMarketsTable(changes); }
+        const changes = marketsChangesHttp(json);
+        if (changes) {
+          updateMarkets(changes);
+          updateMarketsTable(changes);
+        }
       } else {
         markets = initMarkets(json);
         createMarketsTable(markets);
@@ -338,7 +352,7 @@ function updateTickerStatsWs(prevPrice, lastPrice) {
   }
 }
 
-function updateMarketsWs(updates) {
+function marketsChangesWs(updates) {
   const changed = {}, added = {}, removed = {};
   // updates look like: [ <chan id>, null,
   // [ <pair id>, "<last trade price>", "<lowest ask>", "<highest bid>",
@@ -393,8 +407,11 @@ function onMessage(evt) {
       log("ticker subscription server ack");
       return;
     }
-    const changes = updateMarketsWs(data);
-    if (changes) { updateMarketsTable(changes); }
+    const changes = marketsChangesWs(data);
+    if (changes) {
+      updateMarkets(changes);
+      updateMarketsTable(changes);
+    }
   } else {
     log("WARN got data we didn't subscribe for: " + data);
   }
