@@ -66,6 +66,7 @@ function isEmpty(obj) {
   return true;
 }
 
+// warn: this also mutates existing market
 function addMarketChanges(changed, mid, market, update) {
   for (const key in update) {
     const o = market[key];
@@ -350,8 +351,6 @@ function updateMarketsWs(updates) {
       continue;
     }
 
-    addMarketChanges(changed, mid, market, trackedData);
-
     const prevPrice = market.last;
     const lastPrice = trackedData.last;
     if (prevPrice === lastPrice) {
@@ -365,6 +364,8 @@ function updateMarketsWs(updates) {
         log("ticker price changes: " + statsTickerPriceChanges);
       }
     }
+
+    addMarketChanges(changed, mid, market, trackedData);
   }
 
   if (updates.length > 2 + 1) {
