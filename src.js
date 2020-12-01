@@ -320,6 +320,20 @@ function onConnected(evt) {
   connectBtn.onclick = disconnect;
 }
 
+function updateTickerStatsWs(prevPrice, lastPrice) {
+  if (prevPrice === lastPrice) {
+    statsTickerPriceUnchanged += 1;
+    if (statsTickerPriceUnchanged % 400 === 0) {
+      log("ticker price unchanged: " + statsTickerPriceUnchanged);
+    }
+  } else {
+    statsTickerPriceChanges += 1;
+    if (statsTickerPriceChanges % 40 === 0) {
+      log("ticker price changes: " + statsTickerPriceChanges);
+    }
+  }
+}
+
 function updateMarketsWs(updates) {
   const changed = {}, added = {}, removed = {};
   // updates look like: [ <chan id>, null,
@@ -351,20 +365,7 @@ function updateMarketsWs(updates) {
       continue;
     }
 
-    const prevPrice = market.last;
-    const lastPrice = trackedData.last;
-    if (prevPrice === lastPrice) {
-      statsTickerPriceUnchanged += 1;
-      if (statsTickerPriceUnchanged % 400 === 0) {
-        log("ticker price unchanged: " + statsTickerPriceUnchanged);
-      }
-    } else {
-      statsTickerPriceChanges += 1;
-      if (statsTickerPriceChanges % 40 === 0) {
-        log("ticker price changes: " + statsTickerPriceChanges);
-      }
-    }
-
+    updateTickerStatsWs(market.last, trackedData.last);
     addMarketChanges(changed, mid, market, trackedData);
   }
 
