@@ -2,8 +2,6 @@
 
 const log = console.log;
 
-log("script eval start");
-
 // UI access
 const connectBtn = document.getElementById("connect-btn");
 const watchMarketsBtn = document.getElementById("watch-markets-btn");
@@ -50,14 +48,16 @@ function createMarket(tickerItem, name) {
 
 // transform ticker response: key it by market id and add display names
 function createMarkets(tickerResp) {
-  console.time("markets db initialized");
-  log("markets db initializing");
+  const start = performance.now();
+
   const markets = {};
   Object.keys(tickerResp).forEach((marketName) => {
     const market = createMarket(tickerResp[marketName], marketName);
     markets[market.id] = market;
   });
-  console.timeEnd("markets db initialized");
+
+  log("markets created in " + (performance.now() - start) + " ms");
+
   return markets;
 }
 
@@ -86,6 +86,8 @@ function changesOrNull(changed, added, removed) {
 }
 
 function marketsChangesHttp(tickerResp) {
+  const start = performance.now();
+
   const changed = {}, added = {}, removed = {};
   const oldIds = new Set(Object.keys(markets));
 
@@ -107,6 +109,8 @@ function marketsChangesHttp(tickerResp) {
     removed[id] = markets[id];
   }
 
+  log("markets change computed in " + (performance.now() - start) + " ms");
+
   return changesOrNull(changed, added, removed);
 }
 
@@ -117,8 +121,8 @@ function compareByLabel(a, b) {
 }
 
 function createMarketsTable(markets) {
-  console.time("markets table created");
-  log("markets table creating");
+  const start = performance.now();
+
   marketsTable.innerHTML = "";
   const marketsArr = Object.keys(markets).map((id) => markets[id]);
   marketsArr.sort(compareByLabel);
@@ -133,11 +137,11 @@ function createMarketsTable(markets) {
     td2.appendChild(document.createTextNode(market.last));
     marketIdToPriceCell[market.id] = td2;
   });
-  console.timeEnd("markets table created");
+
+  log("markets table created in " + (performance.now() - start) + " ms");
 }
 
 function updateMarkets(changes) {
-  console.time("markets db updated");
   for (const mid in changes.changed) {
     const market = markets[mid];
     const mchange = changes.changed[mid];
@@ -152,7 +156,6 @@ function updateMarkets(changes) {
   for (const mid in changes.removed) {
     delete markets[mid];
   }
-  console.timeEnd("markets db updated");
 }
 
 function updateMarketsTable(changes) {
@@ -170,23 +173,18 @@ function updateMarketsTable(changes) {
   // just one expensive reflow between them.
 
   // part 1: clear change styling from changed cells
-  const changeClearStart = performance.now();
   const changedKeys = Object.keys(changed);
   changedKeys.forEach((mid) => {
     marketIdToPriceCell[mid].classList.remove("changed", "positive", "negative");
   });
-  const changeClearTime = performance.now() - changeClearStart;
 
   // HACK: trigger a synchronous (!) reflow to restart possibly running CSS
   // animations, thanks to https://css-tricks.com/restart-css-animation/
   // more on what triggers reflows here:
   // https://gist.github.com/paulirish/5d52fb081b3570c81e3a
-  const reflowStart = performance.now();
   void marketsTable.offsetWidth; // you're googling 'void' now aren't you? ;)
-  const reflowTime = performance.now() - reflowStart;
 
   // part 2: apply change styling to changed cells
-  const changeAddStart = performance.now();
   changedKeys.forEach((mid) => {
     const marketChange = changed[mid];
     const td = marketIdToPriceCell[mid];
@@ -214,7 +212,6 @@ function updateMarketsTable(changes) {
       }
     }
   });
-  const changeAddTime = performance.now() - changeAddStart;
 
   if (Object.keys(changes.added).length > 0) {
     log("market additions detected: " + JSON.stringify(changes.added));
@@ -225,30 +222,28 @@ function updateMarketsTable(changes) {
 
   const now = performance.now();
   log("markets table updated with " + changedKeys.length + " changes in "
-      + (now - updateStart) + " ms (clear " + changeClearTime + " ms, reflow "
-      + reflowTime + " ms, add " + changeAddTime + " ms), "
+      + (now - updateStart) + " ms, "
       + (now - statsMarketsTableLastUpdated) + " ms since last time");
   statsMarketsTableLastUpdated = now;
 }
 
 function asyncFetchMarkets() {
   const url = tickerUrl;
-  log("ticker fetch initiating " + url);
   abortController = new AbortController();
-  console.time("ticker fetch");
+  const start = performance.now();
   const promise = fetch(url, { signal: abortController.signal })
     .then(function(response) {
-      console.timeLog("ticker fetch");
       if (response.ok) {
-        log("ticker response " + response.status + ", reading");
+        log("http ticker response begins after " + (performance.now() - start)
+            + " ms, status " + response.status);
         return response.json();
       } else {
-        log("ticker response not ok");
+        log("http ticker response not ok");
         throw new Error("Failed to fetch ticker, status " + response.status);
       }
     })
     .then(function(json) {
-      console.timeEnd("ticker fetch");
+      log("http ticker finishes after " + (performance.now() - start) + " ms");
       if (json.error) {
         throw new Error("Poloniex API error: " + json.error);
       }
@@ -271,14 +266,14 @@ function asyncFetchMarkets() {
         console.error("error fetching: " + e);
       }
     });
-  log("ticker fetch initiated");
+  log("http ticker fetch initiated");
   return promise;
 }
 
 function fetchMarketsLoop() {
   asyncFetchMarkets().then(function(markets) {
     if (marketsUpdateEnabled) {
-      log("scheduling markets update");
+      log("scheduling markets update in " + marketsUpdateInterval + " ms");
       marketsTimeout = setTimeout(fetchMarketsLoop, marketsUpdateInterval);
     }
   });
@@ -286,13 +281,13 @@ function fetchMarketsLoop() {
 
 function toggleMarketsUpdating() {
   if (marketsUpdateEnabled) {
-    log("markets updating stopping");
+    log("stopping markets updates");
     marketsUpdateEnabled = false;   // prevent fetchMarketsLoop from setting new timeouts
     clearTimeout(marketsTimeout);   // cancel pending timeouts
     abortController.abort();        // cancel active fetches
     watchMarketsBtn.value = "Watch markets";
   } else {
-    log("markets updating starting");
+    log("starting markets updates");
     marketsUpdateEnabled = true;
     fetchMarketsLoop();
     watchMarketsBtn.value = "Unwatch markets";
@@ -302,11 +297,13 @@ function toggleMarketsUpdating() {
 function wsSend(data) {
   if (!ws.sock || ws.sock.readyState !== WebSocket.OPEN) {
     ws.queue.push(data);
-    log("markets subscription queued, queue size is now " + ws.queue.length);
+    if (ws.queue.length > 5) {
+      log("WARN ws queue size is now " + ws.queue.length);
+    }
     return;
   }
   const message = JSON.stringify(data);
-  log("sending: " + message);
+  log("ws sending: " + message);
   ws.sock.send(message);
 }
 
@@ -315,7 +312,7 @@ function subscribeMarkets() {
 }
 
 function onDisconnected(evt) {
-  log("disconnected from " + ws.url);
+  log("ws disconnected from " + ws.url);
   ws.sock = null;
   connectBtn.value = "Connect";
   connectBtn.onclick = connect;
@@ -327,12 +324,12 @@ function disconnect() {
 }
 
 function onConnected(evt) {
-  console.timeEnd("websocket connected");
-  log("sending " + ws.queue.length + " queued messages");
-  // drain queue, reset shared one to avoid infinite loop in disconnected state
+  console.timeEnd("ws connected");
+  log("ws sending " + ws.queue.length + " queued messages");
+  // copy and reset shared queue to avoid infinite loops when disconnected
   const queue = ws.queue;
   ws.queue = [];
-  queue.forEach((req) => wsSend(req));
+  queue.forEach((req) => wsSend(req)); // drain queue
 
   connectBtn.value = "Disconnect";
   connectBtn.onclick = disconnect;
@@ -342,12 +339,12 @@ function updateTickerStatsWs(prevPrice, lastPrice) {
   if (prevPrice === lastPrice) {
     statsTickerPriceUnchanged += 1;
     if (statsTickerPriceUnchanged % 400 === 0) {
-      log("ticker price unchanged: " + statsTickerPriceUnchanged);
+      log("ws ticker price unchanged: " + statsTickerPriceUnchanged);
     }
   } else {
     statsTickerPriceChanges += 1;
     if (statsTickerPriceChanges % 40 === 0) {
-      log("ticker price changes: " + statsTickerPriceChanges);
+      log("ws ticker price changes: " + statsTickerPriceChanges);
     }
   }
 }
@@ -388,23 +385,27 @@ function marketsChangesWs(updates) {
   }
 
   if (updates.length > 2 + 1) {
-    log("ODD got more than 1 ticker update: " + (updates.length - 2));
+    log("UNUSUAL got more than 1 ticker update: " + (updates.length - 2));
   }
 
   return changesOrNull(changed, added, removed);
+}
+
+function updateHeartbeatStatsWs() {
+  statsHeartbeats += 1;
+  if (statsHeartbeats % 10 === 0) { 
+    log("ws heartbeats: " + statsHeartbeats);
+  }
 }
 
 function onMessage(evt) {
   const data = JSON.parse(evt.data);
   const [channel, seq] = data;
   if (channel === 1010) {
-    statsHeartbeats += 1;
-    if (statsHeartbeats % 10 === 0) { 
-      log("heartbeats: " + statsHeartbeats);
-    }
+    updateHeartbeatStatsWs();
   } else if (channel === 1002) {
     if (seq === 1) {
-      log("ticker subscription server ack");
+      log("ws ticker subscription server ack");
       return;
     }
     const changes = marketsChangesWs(data);
@@ -437,11 +438,11 @@ function connect() {
     });    
   }
 
-  console.time("websocket connected");
-  log("connecting to " + ws.url);
+  console.time("ws connected");
+  log("ws connecting to " + ws.url);
   ws.sock = new WebSocket(ws.url);
 
-  ws.sock.onerror = (evt) => { log("websocket error: " + evt); };
+  ws.sock.onerror = (evt) => { log("ws error: " + evt); };
   ws.sock.onclose = onDisconnected;
   ws.sock.onopen = onConnected;
   ws.sock.onmessage = onMessage;
@@ -457,8 +458,6 @@ function initUi() {
   watchMarketsBtn.onclick = toggleMarketsUpdating;
   connectBtn.disabled = false;
   connectBtn.onclick = connect;
-  log("UI ready");
 }
 
 initUi();
-log("script eval finish");
