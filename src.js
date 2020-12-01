@@ -51,13 +51,13 @@ function createMarkets(tickerResp) {
   const start = performance.now();
 
   const markets = {};
-  Object.keys(tickerResp).forEach((marketName) => {
+  for (const marketName of Object.keys(tickerResp)) {
     const market = createMarket(tickerResp[marketName], marketName);
     markets[market.id] = market;
     if (!market.isActive) {
       log("detected deactivated market: " + market.label);
     }
-  });
+  }
 
   log("markets created in " + (performance.now() - start) + " ms");
 
@@ -95,7 +95,7 @@ function marketsChangesHttp(tickerResp) {
   const oldIds = new Set(Object.keys(markets));
 
   // compute keyset difference along the way
-  Object.keys(tickerResp).forEach((marketName) => {
+  for (const marketName of Object.keys(tickerResp)) {
     const tickerItem = tickerResp[marketName];
     const mid = tickerItem.id;
     const market = markets[mid];
@@ -106,7 +106,7 @@ function marketsChangesHttp(tickerResp) {
     } else { // added item
       added[mid] = createMarket(tickerItem, marketName);
     }
-  });
+  }
 
   for (const id of oldIds) { // deleted items
     removed[id] = markets[id];
@@ -129,7 +129,7 @@ function createMarketsTable(markets) {
   marketsTable.innerHTML = "";
   const marketsArr = Object.keys(markets).map((id) => markets[id]);
   marketsArr.sort(compareByLabel);
-  marketsArr.forEach((market) => {
+  for (const market of marketsArr) {
     const row = marketsTable.insertRow();
     if (!market.isActive) {
       row.classList.add("inactive");
@@ -138,7 +138,7 @@ function createMarketsTable(markets) {
     const td2 = row.insertCell()
     td2.appendChild(document.createTextNode(market.last));
     marketIdToPriceCell[market.id] = td2;
-  });
+  }
 
   log("markets table created in " + (performance.now() - start) + " ms");
 }
@@ -186,9 +186,9 @@ function updateMarketsTable(changes) {
 
   // part 1: clear change styling from changed cells
   const changedKeys = Object.keys(changed);
-  changedKeys.forEach((mid) => {
+  for (const mid of changedKeys) {
     marketIdToPriceCell[mid].classList.remove("changed", "positive", "negative");
-  });
+  }
 
   // HACK: trigger a synchronous (!) reflow to restart possibly running CSS
   // animations, thanks to https://css-tricks.com/restart-css-animation/
@@ -197,7 +197,7 @@ function updateMarketsTable(changes) {
   void marketsTable.offsetWidth; // you're googling 'void' now aren't you? ;)
 
   // part 2: apply change styling to changed cells
-  changedKeys.forEach((mid) => {
+  for (const mid of changedKeys) {
     const marketChange = changed[mid];
     const td = marketIdToPriceCell[mid];
 
@@ -221,7 +221,7 @@ function updateMarketsTable(changes) {
         td.parentNode.classList.add("inactive");
       }
     }
-  });
+  }
 
   const now = performance.now();
   log("markets table updated with " + changedKeys.length + " changes in "
@@ -332,7 +332,8 @@ function onConnected(evt) {
   // copy and reset shared queue to avoid infinite loops when disconnected
   const queue = ws.queue;
   ws.queue = [];
-  queue.forEach((req) => wsSend(req)); // drain queue
+
+  for (const req of queue) { wsSend(req); } // drain queue
 
   connectBtn.value = "Disconnect";
   connectBtn.onclick = disconnect;
