@@ -32,15 +32,15 @@ let statsTickerPriceUnchanged = 0;
 let statsMarketsTableLastUpdated = performance.now();
 
 // convert ticker data we care about
-function trackedTickerData(tickerItem) {
+function trackedMarket(tickerItem) {
   return {
     isActive: (tickerItem.isFrozen !== "1"),
     last: tickerItem.last,
   }
 }
 
-function toMarketItem(tickerItem, name) {
-  const mi = trackedTickerData(tickerItem);
+function createMarket(tickerItem, name) {
+  const mi = trackedMarket(tickerItem);
   mi.id = tickerItem.id;
   mi.name = name;
   const [base, quote] = name.split("_");
@@ -49,12 +49,12 @@ function toMarketItem(tickerItem, name) {
 }
 
 // transform ticker response: key it by market id and add display names
-function initMarkets(tickerResp) {
+function createMarkets(tickerResp) {
   console.time("markets db initialized");
   log("markets db initializing");
   const markets = {};
   Object.keys(tickerResp).forEach((marketName) => {
-    const market = toMarketItem(tickerResp[marketName], marketName);
+    const market = createMarket(tickerResp[marketName], marketName);
     markets[market.id] = market;
   });
   console.timeEnd("markets db initialized");
@@ -95,11 +95,11 @@ function marketsChangesHttp(tickerResp) {
     const mid = tickerItem.id;
     const market = markets[mid];
     if (market) { // exists, possibly changed item
-      const ttd = trackedTickerData(tickerItem);
+      const ttd = trackedMarket(tickerItem);
       addMarketChanges(changed, mid, market, ttd);
       oldIds.delete(String(mid)); // using string ids for now
     } else { // added item
-      added[mid] = toMarketItem(tickerItem, marketName);
+      added[mid] = createMarket(tickerItem, marketName);
     }
   });
 
@@ -259,7 +259,7 @@ function asyncFetchMarkets() {
           updateMarketsTable(changes);
         }
       } else {
-        markets = initMarkets(json);
+        markets = createMarkets(json);
         createMarketsTable(markets);
       }
       return markets;
