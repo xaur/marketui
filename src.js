@@ -91,12 +91,12 @@ function updateMarkets(tickerResp) {
     if (market) { // exists, possibly changed item
       const ttd = trackedTickerData(tickerItem);
       addMarketChanges(changed, mid, market, ttd);
+      oldIds.delete(String(mid)); // using string ids for now
     } else { // added item
       const newMarket = toMarketItem(tickerItem, marketName);
       markets[mid] = newMarket;
       added[mid] = newMarket;
     }
-    oldIds.delete(String(mid)); // using string ids for now
   });
 
   for (const id of oldIds) { // deleted items
