@@ -79,6 +79,14 @@ function addMarketChanges(changed, mid, market, update) {
   }
 }
 
+function changesOrNull(changed, added, removed) {
+  if (isEmpty(changed) && isEmpty(added) && isEmpty(removed)) {
+    return null;
+  } else {
+    return { changed, added, removed };
+  }
+}
+
 function updateMarkets(tickerResp) {
   console.time("markets db updated");
   const changed = {}, added = {}, removed = {};
@@ -107,11 +115,7 @@ function updateMarkets(tickerResp) {
 
   console.timeEnd("markets db updated");
 
-  if (isEmpty(changed) && isEmpty(added) && isEmpty(removed)) {
-    return null;
-  } else {
-    return { changed, added, removed };
-  }
+  return changesOrNull(changed, added, removed);
 }
 
 function compareByLabel(a, b) {
@@ -373,11 +377,7 @@ function updateMarketsWs(updates) {
     log("ODD got more than 1 ticker update: " + (updates.length - 2));
   }
 
-  if (isEmpty(changed) && isEmpty(added) && isEmpty(removed)) {
-    return null;
-  } else {
-    return { changed, added, removed };
-  }
+  return changesOrNull(changed, added, removed);
 }
 
 function onMessage(evt) {
