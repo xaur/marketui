@@ -380,7 +380,6 @@ function marketsChangesWs(updates) {
         isActive: trackedData.isActive,
       };
       added[mid] = newMarket;
-      markets[mid] = newMarket;
       continue;
     }
 
