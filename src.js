@@ -54,6 +54,9 @@ function createMarkets(tickerResp) {
   Object.keys(tickerResp).forEach((marketName) => {
     const market = createMarket(tickerResp[marketName], marketName);
     markets[market.id] = market;
+    if (!market.isActive) {
+      log("detected deactivated market: " + market.label);
+    }
   });
 
   log("markets created in " + (performance.now() - start) + " ms");
@@ -129,7 +132,6 @@ function createMarketsTable(markets) {
   marketsArr.forEach((market) => {
     const row = marketsTable.insertRow();
     if (!market.isActive) {
-      log("detected frozen market: " + market.label);
       row.classList.add("inactive");
     }
     row.insertCell().appendChild(document.createTextNode(market.label));
@@ -141,6 +143,7 @@ function createMarketsTable(markets) {
   log("markets table created in " + (performance.now() - start) + " ms");
 }
 
+// apply mutations in one place, also log important events
 function updateMarkets(changes) {
   for (const mid in changes.changed) {
     const market = markets[mid];
@@ -148,20 +151,29 @@ function updateMarkets(changes) {
     for (const key in mchange) {
       const [o, n] = mchange[key];
       market[key] = n;
+      if (key === "isActive") {
+        if (n === true) {
+          log("market activated: " + market.label);
+        } else {
+          log("market deactivated: " + market.label);
+        }
+      }
     }
   }
   for (const mid in changes.added) {
-    markets[mid] = changes.added[mid];
+    const newMarket = changes.added[mid];
+    markets[mid] = newMarket;
+    log("market added: " + JSON.stringify(newMarket));
   }
   for (const mid in changes.removed) {
     delete markets[mid];
+    log("market removed: " + JSON.stringify(changes.removed[mid]));
   }
 }
 
 function updateMarketsTable(changes) {
   if (!changes) {
-    log("WARN updateMarketsTable called with empty changes");
-    return;
+    throw new Error("updateMarketsTable called with empty changes");
   }
   const updateStart = performance.now();
 
@@ -204,21 +216,12 @@ function updateMarketsTable(changes) {
     if (isActiveChange) {
       const [o, n] = isActiveChange;
       if (n === true) {
-        log("market unfrozen: " + markets[mid].label);
         td.parentNode.classList.remove("inactive");
       } else {
-        log("market frozen: " + markets[mid].label);
         td.parentNode.classList.add("inactive");
       }
     }
   });
-
-  if (Object.keys(changes.added).length > 0) {
-    log("market additions detected: " + JSON.stringify(changes.added));
-  }
-  if (Object.keys(changes.removed).length > 0) {
-    log("market removals detected: " + JSON.stringify(changes.removed));
-  }
 
   const now = performance.now();
   log("markets table updated with " + changedKeys.length + " changes in "
