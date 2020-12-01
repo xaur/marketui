@@ -331,13 +331,15 @@ function updateMarketsWs(updates) {
 
     const market = markets[mid];
     if (!market) {
-      added[mid] = {
+      const newMarket = {
         id: mid,
         name: "UNKNOWN_" + mid,
         label: "UNKNOWN/UNKNOWN",
         last: lastPrice,
         isActive: isActive,
       };
+      added[mid] = newMarket;
+      markets[mid] = newMarket;
       continue;
     }
 
