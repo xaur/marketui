@@ -144,6 +144,7 @@ function updateMarketsTable(changes) {
     return;
   }
   const updateStart = performance.now();
+  let reflowTotal = 0;
 
   const changedKeys = Object.keys(changes.changed);
   changedKeys.forEach((mid) => {
@@ -156,8 +157,12 @@ function updateMarketsTable(changes) {
     // HACK: to restart a possibly running CSS animation we have to trigger a
     // reflow between removing and adding classes
     // thanks to https://css-tricks.com/restart-css-animation/
-    // TEST it may be faster to do only one reflow per update
+    // TEST: it may be faster to do only one reflow per update
+    // move on what triggers a reflow here:
+    // https://gist.github.com/paulirish/5d52fb081b3570c81e3a
+    const reflowStart = performance.now();
     void td.offsetWidth;
+    reflowTotal += (performance.now() - reflowStart);
 
     const priceChange = marketChange["last"];
     if (priceChange) {
@@ -192,8 +197,8 @@ function updateMarketsTable(changes) {
 
   const now = performance.now();
   log("markets table updated with " + changedKeys.length + " changes in "
-      + (now - updateStart) + " ms, " + (now - statsMarketsTableLastUpdated)
-      + " ms since last time");
+      + (now - updateStart) + " ms (reflow " + reflowTotal + " ms), "
+      + (now - statsMarketsTableLastUpdated) + " ms since last time");
   statsMarketsTableLastUpdated = now;
 }
 
