@@ -84,8 +84,8 @@ function updateMarkets(tickerResp) {
         if (n !== o) {
           if (!changed[mid]) { changed[mid] = {}; } // init
           changed[mid][key] = [o, n];
+          market[key] = n;
         }
-        market[key] = ttd[key];
       }
     } else { // added item
       const newMarket = toMarketItem(tickerItem, marketName);
