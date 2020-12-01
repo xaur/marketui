@@ -101,9 +101,6 @@ function updateMarkets(tickerResp) {
   }
 
   console.timeEnd("markets db updated");
-  log("detected " + Object.keys(changed).length +
-      " markets with changes to tracked fields: " +
-      JSON.stringify(changed));
 
   if (isEmpty(changed) && isEmpty(added) && isEmpty(removed)) {
     return null;
@@ -144,25 +141,35 @@ function updateMarketsTable(changes) {
     return;
   }
   const updateStart = performance.now();
-  let reflowTotal = 0;
 
-  const changedKeys = Object.keys(changes.changed);
+  const changed = changes.changed;
+
+  // we have to update the DOM in two parts because we have to trigger a reflow
+  // between removing and adding CSS classes, in order to restart any running
+  // CSS animations. Clearing and adding styles in separate loops allows to do
+  // just one expensive reflow between them.
+
+  // part 1: clear change styling from changed cells
+  const changeClearStart = performance.now();
+  const changedKeys = Object.keys(changed);
   changedKeys.forEach((mid) => {
-    const marketChange = changes.changed[mid];
+    marketIdToPriceCell[mid].classList.remove("changed", "positive", "negative");
+  });
+  const changeClearTime = performance.now() - changeClearStart;
+
+  // HACK: trigger a synchronous (!) reflow to restart possibly running CSS
+  // animations, thanks to https://css-tricks.com/restart-css-animation/
+  // more on what triggers reflows here:
+  // https://gist.github.com/paulirish/5d52fb081b3570c81e3a
+  const reflowStart = performance.now();
+  void marketsTable.offsetWidth; // you're googling 'void' now aren't you? ;)
+  const reflowTime = performance.now() - reflowStart;
+
+  // part 2: apply change styling to changed cells
+  const changeAddStart = performance.now();
+  changedKeys.forEach((mid) => {
+    const marketChange = changed[mid];
     const td = marketIdToPriceCell[mid];
-
-    // clear existing styles
-    td.classList.remove("changed", "positive", "negative");
-
-    // HACK: to restart a possibly running CSS animation we have to trigger a
-    // reflow between removing and adding classes
-    // thanks to https://css-tricks.com/restart-css-animation/
-    // TEST: it may be faster to do only one reflow per update
-    // move on what triggers a reflow here:
-    // https://gist.github.com/paulirish/5d52fb081b3570c81e3a
-    const reflowStart = performance.now();
-    void td.offsetWidth;
-    reflowTotal += (performance.now() - reflowStart);
 
     const priceChange = marketChange["last"];
     if (priceChange) {
@@ -187,6 +194,7 @@ function updateMarketsTable(changes) {
       }
     }
   });
+  const changeAddTime = performance.now() - changeAddStart;
 
   if (Object.keys(changes.added).length > 0) {
     log("market additions detected: " + JSON.stringify(changes.added));
@@ -197,7 +205,8 @@ function updateMarketsTable(changes) {
 
   const now = performance.now();
   log("markets table updated with " + changedKeys.length + " changes in "
-      + (now - updateStart) + " ms (reflow " + reflowTotal + " ms), "
+      + (now - updateStart) + " ms (clear " + changeClearTime + " ms, reflow "
+      + reflowTime + " ms, add " + changeAddTime + " ms), "
       + (now - statsMarketsTableLastUpdated) + " ms since last time");
   statsMarketsTableLastUpdated = now;
 }
