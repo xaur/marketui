@@ -57,7 +57,6 @@ function createMarkets(tickerResp) {
   }
 
   console.log("markets created in", (performance.now() - start), "ms");
-
   return markets;
 }
 
@@ -84,7 +83,6 @@ function diffOrNull(changes, additions, removals) {
 
 function marketsDiffHttp(tickerResp) {
   const start = performance.now();
-
   const changes = new Map(), additions = new Map(), removals = new Map();
   const oldIds = new Set(markets.keys());
 
@@ -107,7 +105,6 @@ function marketsDiffHttp(tickerResp) {
   }
 
   console.log("markets change computed in", (performance.now() - start), "ms");
-
   return diffOrNull(changes, additions, removals);
 }
 
@@ -170,7 +167,6 @@ function updateMarketsTable(diff) {
     throw new Error("updateMarketsTable called with empty diff");
   }
   const updateStart = performance.now();
-
   const changes = diff.changes;
 
   // we have to update the DOM in two parts because we have to trigger a reflow
@@ -222,6 +218,14 @@ function updateMarketsTable(diff) {
   statsMarketsTableLastUpdated = now;
 }
 
+function diffAndUpdate(differ, data) {
+  const diff = differ(data);
+  if (diff) {
+    updateMarkets(diff);
+    updateMarketsTable(diff);
+  }
+}
+
 function asyncFetchMarkets() {
   const url = tickerUrl;
   abortController = new AbortController();
@@ -243,11 +247,7 @@ function asyncFetchMarkets() {
         throw new Error("Poloniex API error: " + json.error);
       }
       if (markets) {
-        const diff = marketsDiffHttp(json);
-        if (diff) {
-          updateMarkets(diff);
-          updateMarketsTable(diff);
-        }
+        diffAndUpdate(marketsDiffHttp, json);
       } else {
         markets = createMarkets(json);
         createMarketsTable(markets);
@@ -383,7 +383,6 @@ function marketsDiffWs(updates) {
   if (updates.length > 2 + 1) {
     console.warn("got more than 1 ticker update:", (updates.length - 2));
   }
-
   return diffOrNull(changes, additions, removals);
 }
 
@@ -404,11 +403,7 @@ function onMessage(evt) {
       console.log("ws ticker subscription server ack");
       return;
     }
-    const diff = marketsDiffWs(data);
-    if (diff) {
-      updateMarkets(diff);
-      updateMarketsTable(diff);
-    }
+    diffAndUpdate(marketsDiffWs, data);
   } else {
     console.warn("received data we didn't subscribe for:", JSON.stringify(data));
   }
