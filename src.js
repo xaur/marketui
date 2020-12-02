@@ -61,19 +61,17 @@ function createMarkets(tickerResp) {
   return markets;
 }
 
-function addMarketChanges(changes, mid, market, update) {
+function marketChange(market, update) {
+  let change = null;
   for (const key in update) {
     const o = market[key];
     const n = update[key];
     if (n !== o) {
-      let change = changes.get(mid);
-      if (!change) { // init
-        change = {};
-        changes.set(mid, change);
-      }
+      if (!change) { change = {}; }
       change[key] = [o, n];
     }
   }
+  return change;
 }
 
 function diffOrNull(changes, additions, removals) {
@@ -97,7 +95,8 @@ function marketsDiffHttp(tickerResp) {
     const market = markets.get(mid);
     if (market) { // exists, possibly changed item
       const ttd = trackedMarket(tickerItem);
-      addMarketChanges(changes, mid, market, ttd);
+      const c = marketChange(market, ttd);
+      if (c) { changes.set(mid, c); }
       oldIds.delete(mid);
     } else { // added item
       additions.set(mid, createMarket(tickerItem, marketName));
@@ -378,7 +377,8 @@ function marketsDiffWs(updates) {
     }
 
     updateTickerStatsWs(market.last, trackedData.last);
-    addMarketChanges(changes, mid, market, trackedData);
+    const c = marketChange(market, trackedData);
+    if (c) { changes.set(mid, c); }
   }
 
   if (updates.length > 2 + 1) {
