@@ -296,7 +296,7 @@ function wsSend(data) {
   if (!ws.sock || ws.sock.readyState !== WebSocket.OPEN) {
     ws.queue.push(data);
     if (ws.queue.length > 5) {
-      console.log("WARN ws queue size is now", ws.queue.length);
+      console.warn("ws queue size is now", ws.queue.length);
     }
     return;
   }
@@ -383,7 +383,7 @@ function marketsDiffWs(updates) {
   }
 
   if (updates.length > 2 + 1) {
-    console.log("UNUSUAL got more than 1 ticker update:", (updates.length - 2));
+    console.warn("got more than 1 ticker update:", (updates.length - 2));
   }
 
   return diffOrNull(changes, additions, removals);
@@ -412,7 +412,7 @@ function onMessage(evt) {
       updateMarketsTable(diff);
     }
   } else {
-    console.log("WARN got data we didn't subscribe for:", JSON.stringify(data));
+    console.warn("received data we didn't subscribe for:", JSON.stringify(data));
   }
 }
 
