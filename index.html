@@ -6,7 +6,11 @@
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="debug.css">
   <style>
-    /* layout here, styling in styles.css */
+    /* reusable layout here, styling in styles.css */
+    .flexbox { display: flex; }
+    .toolbar > * { margin: 0.3em; }
+    .flexbox.columns { flex-grow: 1; }
+    .flexbox.columns > *:not(:last-child) { margin-right: 0.4em; }
     #markets-table td:nth-child(2) { text-align: right; }
   </style>
 </head>
@@ -15,14 +19,14 @@
 
 <div style="height: 100%; max-width: 800px; display: flex; flex-flow: column;">
 
-  <div style="display: flex; flex-flow: row-reverse wrap;">
+  <div class="flexbox toolbar" style="flex-flow: row-reverse wrap;">
     <input id="connect-btn" type="button" value="Connect" disabled>
-    <input id="watch-markets-btn" type="button" value="Watch markets" disabled style="margin-right: 1em;">
-    <input id="update-markets-btn" type="button" value="Update markets" disabled style="margin-right: 1em;">
+    <input id="watch-markets-btn" type="button" value="Watch markets" disabled>
+    <input id="update-markets-btn" type="button" value="Update markets" disabled>
   </div>
 
-  <div style="flex-grow: 1; margin-top: 0.5em; display: flex; overflow: hidden;">
-    <div style="margin-right: 8px; min-width: 300px; width: 492px;" class="bghint"></div>
+  <div class="flexbox columns" style="overflow: hidden;">
+    <div style="min-width: 300px; width: 492px;" class="bghint"></div>
     <div style="min-width: 200px; width: 300px; overflow: hidden scroll;" class="bghint">
       <table>
         <thead><tr><th>market</th><th>price</th></thead>
