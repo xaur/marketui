@@ -42,7 +42,7 @@ function createMarket(tickerItem, name) {
   mi.id = tickerItem.id;
   mi.name = name;
   const [base, quote] = name.split("_");
-  mi.label = quote + "/" + base;
+  mi.label = `${quote}/${base}`
   return mi;
 }
 
@@ -55,11 +55,11 @@ function createMarkets(tickerResp) {
     const market = createMarket(tickerResp[marketName], marketName);
     markets.set(market.id, market);
     if (!market.isActive) {
-      log("detected deactivated market: " + market.label);
+      log(`detected deactivated market: ${market.label}`);
     }
   }
 
-  log("markets created in " + (performance.now() - start) + " ms");
+  log(`markets created in ${performance.now() - start} ms`);
 
   return markets;
 }
@@ -111,7 +111,7 @@ function marketsChangesHttp(tickerResp) {
     removed.set(id, markets.get(id));
   }
 
-  log("markets change computed in " + (performance.now() - start) + " ms");
+  log(`markets change computed in ${performance.now() - start} ms`);
 
   return changesOrNull(changed, added, removed);
 }
@@ -141,7 +141,7 @@ function createMarketsTable(markets) {
   }
 
   marketIdToPriceCell = priceCellIndex;
-  log("markets table created in " + (performance.now() - start) + " ms");
+  log(`markets table created in ${performance.now() - start} ms`);
 }
 
 // apply mutations in one place, also log important events
@@ -153,20 +153,20 @@ function updateMarkets(changes) {
       market[key] = n;
       if (key === "isActive") {
         if (n === true) {
-          log("market activated: " + market.label);
+          log(`market activated: ${market.label}`);
         } else {
-          log("market deactivated: " + market.label);
+          log(`market deactivated: ${market.label}`);
         }
       }
     }
   }
   for (const [mid, newMarket] of changes.added) {
     markets.set(mid, newMarket);
-    log("market added: " + JSON.stringify(newMarket));
+    log(`market added: ${JSON.stringify(newMarket)}`);
   }
   for (const [mid, removedMarket] of changes.removed) {
     markets.delete(mid);
-    log("market removed: " + JSON.stringify(removedMarket));
+    log(`market removed: ${JSON.stringify(removedMarket)}`);
   }
 }
 
@@ -221,9 +221,9 @@ function updateMarketsTable(changes) {
   }
 
   const now = performance.now();
-  log("markets table updated with " + changed.size + " changes in "
-      + (now - updateStart) + " ms, "
-      + (now - statsMarketsTableLastUpdated) + " ms since last time");
+  log(`markets table updated with ${changed.size} changes `
+      + `in ${now - updateStart} ms, `
+      + `${now - statsMarketsTableLastUpdated} ms since last time`);
   statsMarketsTableLastUpdated = now;
 }
 
@@ -234,18 +234,18 @@ function asyncFetchMarkets() {
   const promise = fetch(url, { signal: abortController.signal })
     .then((response) => {
       if (response.ok) {
-        log("http ticker response begins after " + (performance.now() - start)
-            + " ms, status " + response.status);
+        log(`http ticker response begins after ${performance.now() - start} `
+            + ` ms, status ${response.status}`);
         return response.json();
       } else {
         log("http ticker response not ok");
-        throw new Error("Failed to fetch ticker, status " + response.status);
+        throw new Error(`Failed to fetch ticker, status ${response.status}`);
       }
     })
     .then((json) => {
-      log("http ticker finishes after " + (performance.now() - start) + " ms");
+      log(`http ticker finishes after ${performance.now() - start} ms`);
       if (json.error) {
-        throw new Error("Poloniex API error: " + json.error);
+        throw new Error(`Poloniex API error: ${json.error}`);
       }
       if (markets) {
         const changes = marketsChangesHttp(json);
@@ -261,9 +261,9 @@ function asyncFetchMarkets() {
     })
     .catch((e) => {
       if (e.name === "AbortError") {
-        log("aborted: " + e);
+        log(`aborted: ${e}`);
       } else {
-        console.error("error fetching: " + e);
+        console.error(`error fetching: ${e}`);
       }
     });
   log("http ticker fetch initiated");
@@ -273,7 +273,7 @@ function asyncFetchMarkets() {
 function fetchMarketsLoop() {
   asyncFetchMarkets().then((markets) => {
     if (marketsUpdateEnabled) {
-      log("scheduling markets update in " + marketsUpdateInterval + " ms");
+      log(`scheduling markets update in ${marketsUpdateInterval} ms`);
       marketsTimeout = setTimeout(fetchMarketsLoop, marketsUpdateInterval);
     }
   });
@@ -298,12 +298,12 @@ function wsSend(data) {
   if (!ws.sock || ws.sock.readyState !== WebSocket.OPEN) {
     ws.queue.push(data);
     if (ws.queue.length > 5) {
-      log("WARN ws queue size is now " + ws.queue.length);
+      log(`WARN ws queue size is now ${ws.queue.length}`);
     }
     return;
   }
   const message = JSON.stringify(data);
-  log("ws sending: " + message);
+  log(`ws sending: ${message}`);
   ws.sock.send(message);
 }
 
@@ -312,7 +312,7 @@ function subscribeMarkets() {
 }
 
 function onDisconnected(evt) {
-  log("ws disconnected from " + ws.url);
+  log(`ws disconnected from ${ws.url}`);
   ws.sock = null;
   connectBtn.value = "Connect";
   connectBtn.onclick = connect;
@@ -325,7 +325,7 @@ function disconnect() {
 
 function onConnected(evt) {
   console.timeEnd("ws connected");
-  log("ws sending " + ws.queue.length + " queued messages");
+  log(`ws sending ${ws.queue.length} queued messages`);
   // copy and reset shared queue to avoid infinite loops when disconnected
   const queue = ws.queue;
   ws.queue = [];
@@ -340,12 +340,12 @@ function updateTickerStatsWs(prevPrice, lastPrice) {
   if (prevPrice === lastPrice) {
     statsTickerPriceUnchanged += 1;
     if (statsTickerPriceUnchanged % 400 === 0) {
-      log("ws ticker price unchanged: " + statsTickerPriceUnchanged);
+      log(`ws ticker price unchanged: ${statsTickerPriceUnchanged}`);
     }
   } else {
     statsTickerPriceChanges += 1;
     if (statsTickerPriceChanges % 40 === 0) {
-      log("ws ticker price changes: " + statsTickerPriceChanges);
+      log(`ws ticker price changes: ${statsTickerPriceChanges}`);
     }
   }
 }
@@ -385,7 +385,7 @@ function marketsChangesWs(updates) {
   }
 
   if (updates.length > 2 + 1) {
-    log("UNUSUAL got more than 1 ticker update: " + (updates.length - 2));
+    log(`UNUSUAL got more than 1 ticker update: ${updates.length - 2}`);
   }
 
   return changesOrNull(changed, added, removed);
@@ -394,7 +394,7 @@ function marketsChangesWs(updates) {
 function updateHeartbeatStatsWs() {
   statsHeartbeats += 1;
   if (statsHeartbeats % 10 === 0) { 
-    log("ws heartbeats: " + statsHeartbeats);
+    log(`ws heartbeats: ${statsHeartbeats}`);
   }
 }
 
@@ -414,7 +414,7 @@ function onMessage(evt) {
       updateMarketsTable(changes);
     }
   } else {
-    log("WARN got data we didn't subscribe for: " + data);
+    log(`WARN got data we didn't subscribe for: ${JSON.stringify(data)}`);
   }
 }
 
@@ -439,10 +439,10 @@ function connect() {
   }
 
   console.time("ws connected");
-  log("ws connecting to " + ws.url);
+  log(`ws connecting to ${ws.url}`);
   ws.sock = new WebSocket(ws.url);
 
-  ws.sock.onerror = (e => log("ws error: " + e));
+  ws.sock.onerror = (e => log(`ws error: ${e}`));
   ws.sock.onclose = onDisconnected;
   ws.sock.onopen = onConnected;
   ws.sock.onmessage = onMessage;
