@@ -176,7 +176,8 @@ function updateMarketsTable(diff) {
 
   // part 1: clear change styling from changed cells
   for (const mid of changes.keys()) {
-    marketIdToPriceCell.get(mid).classList.remove("changed", "positive", "negative");
+    marketIdToPriceCell.get(mid).parentNode.classList
+      .remove("changed", "positive", "negative");
   }
 
   // HACK: trigger a synchronous (!) reflow to restart possibly running CSS
@@ -194,9 +195,9 @@ function updateMarketsTable(diff) {
       const [o, n] = priceChange;
       td.firstChild.nodeValue = n;
       if (Number(n) > Number(o)) {
-        td.classList.add("changed", "positive");
+        td.parentNode.classList.add("changed", "positive");
       } else {
-        td.classList.add("changed", "negative");
+        td.parentNode.classList.add("changed", "negative");
       }
     }
 
