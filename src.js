@@ -62,33 +62,33 @@ function createMarkets(tickerResp) {
   return markets;
 }
 
-function addMarketChanges(changed, mid, market, update) {
+function addMarketChanges(changes, mid, market, update) {
   for (const key in update) {
     const o = market[key];
     const n = update[key];
     if (n !== o) {
-      let change = changed.get(mid);
+      let change = changes.get(mid);
       if (!change) { // init
         change = {};
-        changed.set(mid, change);
+        changes.set(mid, change);
       }
       change[key] = [o, n];
     }
   }
 }
 
-function changesOrNull(changed, added, removed) {
-  if ((changed.size === 0) && (added.size === 0) && (removed.size === 0)) {
+function diffOrNull(changes, additions, removals) {
+  if ((changes.size === 0) && (additions.size === 0) && (removals.size === 0)) {
     return null;
   } else {
-    return { changed, added, removed };
+    return { changes, additions, removals };
   }
 }
 
-function marketsChangesHttp(tickerResp) {
+function marketsDiffHttp(tickerResp) {
   const start = performance.now();
 
-  const changed = new Map(), added = new Map(), removed = new Map();
+  const changes = new Map(), additions = new Map(), removals = new Map();
   const oldIds = new Set(markets.keys());
 
   // compute keyset difference along the way
@@ -98,20 +98,20 @@ function marketsChangesHttp(tickerResp) {
     const market = markets.get(mid);
     if (market) { // exists, possibly changed item
       const ttd = trackedMarket(tickerItem);
-      addMarketChanges(changed, mid, market, ttd);
+      addMarketChanges(changes, mid, market, ttd);
       oldIds.delete(mid);
     } else { // added item
-      added.set(mid, createMarket(tickerItem, marketName));
+      additions.set(mid, createMarket(tickerItem, marketName));
     }
   }
 
   for (const id of oldIds) { // deleted items
-    removed.set(id, markets.get(id));
+    removals.set(id, markets.get(id));
   }
 
   console.log("markets change computed in", (performance.now() - start), "ms");
 
-  return changesOrNull(changed, added, removed);
+  return diffOrNull(changes, additions, removals);
 }
 
 function compareByLabel(a, b) {
@@ -143,8 +143,8 @@ function createMarketsTable(markets) {
 }
 
 // apply mutations in one place, also log important events
-function updateMarkets(changes) {
-  for (const [mid, marketChange] of changes.changed) {
+function updateMarkets(diff) {
+  for (const [mid, marketChange] of diff.changes) {
     const market = markets.get(mid);
     for (const key in marketChange) {
       const [o, n] = marketChange[key];
@@ -158,23 +158,23 @@ function updateMarkets(changes) {
       }
     }
   }
-  for (const [mid, newMarket] of changes.added) {
+  for (const [mid, newMarket] of diff.additions) {
     markets.set(mid, newMarket);
     console.log("market added:", JSON.stringify(newMarket));
   }
-  for (const [mid, removedMarket] of changes.removed) {
+  for (const [mid, removedMarket] of diff.removals) {
     markets.delete(mid);
     console.log("market removed:", JSON.stringify(removedMarket));
   }
 }
 
-function updateMarketsTable(changes) {
-  if (!changes) {
-    throw new Error("updateMarketsTable called with empty changes");
+function updateMarketsTable(diff) {
+  if (!diff) {
+    throw new Error("updateMarketsTable called with empty diff");
   }
   const updateStart = performance.now();
 
-  const changed = changes.changed;
+  const changes = diff.changes;
 
   // we have to update the DOM in two parts because we have to trigger a reflow
   // between removing and adding CSS classes, in order to restart any running
@@ -182,7 +182,7 @@ function updateMarketsTable(changes) {
   // just one expensive reflow between them.
 
   // part 1: clear change styling from changed cells
-  for (const mid of changed.keys()) {
+  for (const mid of changes.keys()) {
     marketIdToPriceCell.get(mid).classList.remove("changed", "positive", "negative");
   }
 
@@ -193,7 +193,7 @@ function updateMarketsTable(changes) {
   void marketsTable.offsetWidth; // you're googling 'void' now aren't you? ;)
 
   // part 2: apply change styling to changed cells
-  for (const [mid, marketChange] of changed) {
+  for (const [mid, marketChange] of changes) {
     const td = marketIdToPriceCell.get(mid);
 
     const priceChange = marketChange.last;
@@ -219,7 +219,7 @@ function updateMarketsTable(changes) {
   }
 
   const now = performance.now();
-  console.log("markets table updated with", changed.size, "changes in",
+  console.log("markets table updated with", changes.size, "changes in",
     (now - updateStart), "ms,", (now - statsMarketsTableLastUpdated),
     "ms since last time");
   statsMarketsTableLastUpdated = now;
@@ -246,10 +246,10 @@ function asyncFetchMarkets() {
         throw new Error("Poloniex API error: " + json.error);
       }
       if (markets) {
-        const changes = marketsChangesHttp(json);
-        if (changes) {
-          updateMarkets(changes);
-          updateMarketsTable(changes);
+        const diff = marketsDiffHttp(json);
+        if (diff) {
+          updateMarkets(diff);
+          updateMarketsTable(diff);
         }
       } else {
         markets = createMarkets(json);
@@ -348,8 +348,8 @@ function updateTickerStatsWs(prevPrice, lastPrice) {
   }
 }
 
-function marketsChangesWs(updates) {
-  const changed = new Map(), added = new Map(), removed = new Map();
+function marketsDiffWs(updates) {
+  const changes = new Map(), additions = new Map(), removals = new Map();
   // updates look like: [ <chan id>, null,
   // [ <pair id>, "<last trade price>", "<lowest ask>", "<highest bid>",
   //   "<percent change in last 24 h>", "<base currency volume in last 24 h>",
@@ -374,19 +374,19 @@ function marketsChangesWs(updates) {
         last: trackedData.last,
         isActive: trackedData.isActive,
       };
-      added.set(mid, newMarket);
+      additions.set(mid, newMarket);
       continue;
     }
 
     updateTickerStatsWs(market.last, trackedData.last);
-    addMarketChanges(changed, mid, market, trackedData);
+    addMarketChanges(changes, mid, market, trackedData);
   }
 
   if (updates.length > 2 + 1) {
     console.log("UNUSUAL got more than 1 ticker update:", (updates.length - 2));
   }
 
-  return changesOrNull(changed, added, removed);
+  return diffOrNull(changes, additions, removals);
 }
 
 function updateHeartbeatStatsWs() {
@@ -406,10 +406,10 @@ function onMessage(evt) {
       console.log("ws ticker subscription server ack");
       return;
     }
-    const changes = marketsChangesWs(data);
-    if (changes) {
-      updateMarkets(changes);
-      updateMarketsTable(changes);
+    const diff = marketsDiffWs(data);
+    if (diff) {
+      updateMarkets(diff);
+      updateMarketsTable(diff);
     }
   } else {
     console.log("WARN got data we didn't subscribe for:", JSON.stringify(data));
