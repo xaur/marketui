@@ -1,7 +1,5 @@
 "use strict";
 
-const log = console.log;
-
 // UI access
 const connectBtn = document.getElementById("connect-btn");
 const watchMarketsBtn = document.getElementById("watch-markets-btn");
@@ -55,11 +53,11 @@ function createMarkets(tickerResp) {
     const market = createMarket(tickerResp[marketName], marketName);
     markets.set(market.id, market);
     if (!market.isActive) {
-      log(`detected deactivated market: ${market.label}`);
+      console.log(`detected deactivated market: ${market.label}`);
     }
   }
 
-  log(`markets created in ${performance.now() - start} ms`);
+  console.log(`markets created in ${performance.now() - start} ms`);
 
   return markets;
 }
@@ -111,7 +109,7 @@ function marketsChangesHttp(tickerResp) {
     removed.set(id, markets.get(id));
   }
 
-  log(`markets change computed in ${performance.now() - start} ms`);
+  console.log(`markets change computed in ${performance.now() - start} ms`);
 
   return changesOrNull(changed, added, removed);
 }
@@ -141,7 +139,7 @@ function createMarketsTable(markets) {
   }
 
   marketIdToPriceCell = priceCellIndex;
-  log(`markets table created in ${performance.now() - start} ms`);
+  console.log(`markets table created in ${performance.now() - start} ms`);
 }
 
 // apply mutations in one place, also log important events
@@ -153,20 +151,20 @@ function updateMarkets(changes) {
       market[key] = n;
       if (key === "isActive") {
         if (n === true) {
-          log(`market activated: ${market.label}`);
+          console.log(`market activated: ${market.label}`);
         } else {
-          log(`market deactivated: ${market.label}`);
+          console.log(`market deactivated: ${market.label}`);
         }
       }
     }
   }
   for (const [mid, newMarket] of changes.added) {
     markets.set(mid, newMarket);
-    log(`market added: ${JSON.stringify(newMarket)}`);
+    console.log(`market added: ${JSON.stringify(newMarket)}`);
   }
   for (const [mid, removedMarket] of changes.removed) {
     markets.delete(mid);
-    log(`market removed: ${JSON.stringify(removedMarket)}`);
+    console.log(`market removed: ${JSON.stringify(removedMarket)}`);
   }
 }
 
@@ -221,7 +219,7 @@ function updateMarketsTable(changes) {
   }
 
   const now = performance.now();
-  log(`markets table updated with ${changed.size} changes `
+  console.log(`markets table updated with ${changed.size} changes `
       + `in ${now - updateStart} ms, `
       + `${now - statsMarketsTableLastUpdated} ms since last time`);
   statsMarketsTableLastUpdated = now;
@@ -234,16 +232,16 @@ function asyncFetchMarkets() {
   const promise = fetch(url, { signal: abortController.signal })
     .then((response) => {
       if (response.ok) {
-        log(`http ticker response begins after ${performance.now() - start} `
+        console.log(`http ticker response begins after ${performance.now() - start} `
             + ` ms, status ${response.status}`);
         return response.json();
       } else {
-        log("http ticker response not ok");
+        console.log("http ticker response not ok");
         throw new Error(`Failed to fetch ticker, status ${response.status}`);
       }
     })
     .then((json) => {
-      log(`http ticker finishes after ${performance.now() - start} ms`);
+      console.log(`http ticker finishes after ${performance.now() - start} ms`);
       if (json.error) {
         throw new Error(`Poloniex API error: ${json.error}`);
       }
@@ -261,19 +259,19 @@ function asyncFetchMarkets() {
     })
     .catch((e) => {
       if (e.name === "AbortError") {
-        log(`aborted: ${e}`);
+        console.log(`aborted: ${e}`);
       } else {
         console.error(`error fetching: ${e}`);
       }
     });
-  log("http ticker fetch initiated");
+  console.log("http ticker fetch initiated");
   return promise;
 }
 
 function fetchMarketsLoop() {
   asyncFetchMarkets().then((markets) => {
     if (marketsUpdateEnabled) {
-      log(`scheduling markets update in ${marketsUpdateInterval} ms`);
+      console.log(`scheduling markets update in ${marketsUpdateInterval} ms`);
       marketsTimeout = setTimeout(fetchMarketsLoop, marketsUpdateInterval);
     }
   });
@@ -281,13 +279,13 @@ function fetchMarketsLoop() {
 
 function toggleMarketsUpdating() {
   if (marketsUpdateEnabled) {
-    log("stopping markets updates");
+    console.log("stopping markets updates");
     marketsUpdateEnabled = false;   // prevent fetchMarketsLoop from setting new timeouts
     clearTimeout(marketsTimeout);   // cancel pending timeouts
     abortController.abort();        // cancel active fetches
     watchMarketsBtn.value = "Watch markets";
   } else {
-    log("starting markets updates");
+    console.log("starting markets updates");
     marketsUpdateEnabled = true;
     fetchMarketsLoop();
     watchMarketsBtn.value = "Unwatch markets";
@@ -298,12 +296,12 @@ function wsSend(data) {
   if (!ws.sock || ws.sock.readyState !== WebSocket.OPEN) {
     ws.queue.push(data);
     if (ws.queue.length > 5) {
-      log(`WARN ws queue size is now ${ws.queue.length}`);
+      console.log(`WARN ws queue size is now ${ws.queue.length}`);
     }
     return;
   }
   const message = JSON.stringify(data);
-  log(`ws sending: ${message}`);
+  console.log(`ws sending: ${message}`);
   ws.sock.send(message);
 }
 
@@ -312,7 +310,7 @@ function subscribeMarkets() {
 }
 
 function onDisconnected(evt) {
-  log(`ws disconnected from ${ws.url}`);
+  console.log(`ws disconnected from ${ws.url}`);
   ws.sock = null;
   connectBtn.value = "Connect";
   connectBtn.onclick = connect;
@@ -325,7 +323,7 @@ function disconnect() {
 
 function onConnected(evt) {
   console.timeEnd("ws connected");
-  log(`ws sending ${ws.queue.length} queued messages`);
+  console.log(`ws sending ${ws.queue.length} queued messages`);
   // copy and reset shared queue to avoid infinite loops when disconnected
   const queue = ws.queue;
   ws.queue = [];
@@ -340,12 +338,12 @@ function updateTickerStatsWs(prevPrice, lastPrice) {
   if (prevPrice === lastPrice) {
     statsTickerPriceUnchanged += 1;
     if (statsTickerPriceUnchanged % 400 === 0) {
-      log(`ws ticker price unchanged: ${statsTickerPriceUnchanged}`);
+      console.log(`ws ticker price unchanged: ${statsTickerPriceUnchanged}`);
     }
   } else {
     statsTickerPriceChanges += 1;
     if (statsTickerPriceChanges % 40 === 0) {
-      log(`ws ticker price changes: ${statsTickerPriceChanges}`);
+      console.log(`ws ticker price changes: ${statsTickerPriceChanges}`);
     }
   }
 }
@@ -385,7 +383,7 @@ function marketsChangesWs(updates) {
   }
 
   if (updates.length > 2 + 1) {
-    log(`UNUSUAL got more than 1 ticker update: ${updates.length - 2}`);
+    console.log(`UNUSUAL got more than 1 ticker update: ${updates.length - 2}`);
   }
 
   return changesOrNull(changed, added, removed);
@@ -394,7 +392,7 @@ function marketsChangesWs(updates) {
 function updateHeartbeatStatsWs() {
   statsHeartbeats += 1;
   if (statsHeartbeats % 10 === 0) { 
-    log(`ws heartbeats: ${statsHeartbeats}`);
+    console.log(`ws heartbeats: ${statsHeartbeats}`);
   }
 }
 
@@ -405,7 +403,7 @@ function onMessage(evt) {
     updateHeartbeatStatsWs();
   } else if (channel === 1002) {
     if (seq === 1) {
-      log("ws ticker subscription server ack");
+      console.log("ws ticker subscription server ack");
       return;
     }
     const changes = marketsChangesWs(data);
@@ -414,7 +412,7 @@ function onMessage(evt) {
       updateMarketsTable(changes);
     }
   } else {
-    log(`WARN got data we didn't subscribe for: ${JSON.stringify(data)}`);
+    console.log(`WARN got data we didn't subscribe for: ${JSON.stringify(data)}`);
   }
 }
 
@@ -424,12 +422,12 @@ function onConnecting() {
 }
 
 function connect() {
-  log("connect starting");
+  console.log("connect starting");
   if (markets) {
-    log("reusing existing markets data");
+    console.log("reusing existing markets data");
     subscribeMarkets();
   } else {
-    log("fetching markets data for the first time");
+    console.log("fetching markets data for the first time");
     asyncFetchMarkets().then((markets) => {
       if (markets) {
         // only subscribe to updates if markets db was populated
@@ -439,10 +437,10 @@ function connect() {
   }
 
   console.time("ws connected");
-  log(`ws connecting to ${ws.url}`);
+  console.log(`ws connecting to ${ws.url}`);
   ws.sock = new WebSocket(ws.url);
 
-  ws.sock.onerror = (e => log(`ws error: ${e}`));
+  ws.sock.onerror = (e => console.log(`ws error: ${e}`));
   ws.sock.onclose = onDisconnected;
   ws.sock.onopen = onConnected;
   ws.sock.onmessage = onMessage;
