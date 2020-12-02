@@ -442,7 +442,7 @@ function connect() {
   log("ws connecting to " + ws.url);
   ws.sock = new WebSocket(ws.url);
 
-  ws.sock.onerror = (evt) => { log("ws error: " + evt); };
+  ws.sock.onerror = (e => log("ws error: " + e));
   ws.sock.onclose = onDisconnected;
   ws.sock.onopen = onConnected;
   ws.sock.onmessage = onMessage;
