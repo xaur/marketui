@@ -38,7 +38,6 @@ function trackedMarket(tickerItem) {
 function createMarket(tickerItem, name) {
   const mi = trackedMarket(tickerItem);
   mi.id = tickerItem.id;
-  mi.name = name;
   const [base, quote] = name.split("_");
   mi.label = quote + "/" + base;
   return mi;
