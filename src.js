@@ -6,13 +6,13 @@ const log = console.log;
 const connectBtn = document.getElementById("connect-btn");
 const watchMarketsBtn = document.getElementById("watch-markets-btn");
 const marketsTable = document.getElementById("markets-table");
-const marketIdToPriceCell = {};
+let marketIdToPriceCell; // Map
 
 // https://docs.poloniex.com/
 const tickerUrl = "https://poloniex.com/public?command=returnTicker";
 
 // state
-let markets;
+let markets; // Map
 let marketsUpdateEnabled = false;
 let marketsUpdateInterval = 3000;
 let marketsTimeout;
@@ -50,10 +50,10 @@ function createMarket(tickerItem, name) {
 function createMarkets(tickerResp) {
   const start = performance.now();
 
-  const markets = {};
+  const markets = new Map();
   for (const marketName of Object.keys(tickerResp)) {
     const market = createMarket(tickerResp[marketName], marketName);
-    markets[market.id] = market;
+    markets.set(market.id, market);
     if (!market.isActive) {
       log("detected deactivated market: " + market.label);
     }
@@ -64,24 +64,23 @@ function createMarkets(tickerResp) {
   return markets;
 }
 
-function isEmpty(obj) {
-  for (const prop in obj) { return false; }
-  return true;
-}
-
 function addMarketChanges(changed, mid, market, update) {
   for (const key in update) {
     const o = market[key];
     const n = update[key];
     if (n !== o) {
-      if (!changed[mid]) { changed[mid] = {}; } // init
-      changed[mid][key] = [o, n];
+      let change = changed.get(mid);
+      if (!change) { // init
+        change = {};
+        changed.set(mid, change);
+      }
+      change[key] = [o, n];
     }
   }
 }
 
 function changesOrNull(changed, added, removed) {
-  if (isEmpty(changed) && isEmpty(added) && isEmpty(removed)) {
+  if ((changed.size === 0) && (added.size === 0) && (removed.size === 0)) {
     return null;
   } else {
     return { changed, added, removed };
@@ -91,25 +90,25 @@ function changesOrNull(changed, added, removed) {
 function marketsChangesHttp(tickerResp) {
   const start = performance.now();
 
-  const changed = {}, added = {}, removed = {};
-  const oldIds = new Set(Object.keys(markets));
+  const changed = new Map(), added = new Map(), removed = new Map();
+  const oldIds = new Set(markets.keys());
 
   // compute keyset difference along the way
   for (const marketName of Object.keys(tickerResp)) {
     const tickerItem = tickerResp[marketName];
     const mid = tickerItem.id;
-    const market = markets[mid];
+    const market = markets.get(mid);
     if (market) { // exists, possibly changed item
       const ttd = trackedMarket(tickerItem);
       addMarketChanges(changed, mid, market, ttd);
-      oldIds.delete(String(mid)); // using string ids for now
+      oldIds.delete(mid);
     } else { // added item
-      added[mid] = createMarket(tickerItem, marketName);
+      added.set(mid, createMarket(tickerItem, marketName));
     }
   }
 
   for (const id of oldIds) { // deleted items
-    removed[id] = markets[id];
+    removed.set(id, markets.get(id));
   }
 
   log("markets change computed in " + (performance.now() - start) + " ms");
@@ -127,8 +126,9 @@ function createMarketsTable(markets) {
   const start = performance.now();
 
   marketsTable.innerHTML = "";
-  const marketsArr = Object.keys(markets).map((id) => markets[id]);
+  const marketsArr = Array.from(markets.values());
   marketsArr.sort(compareByLabel);
+  const priceCellIndex = new Map();
   for (const market of marketsArr) {
     const row = marketsTable.insertRow();
     if (!market.isActive) {
@@ -137,19 +137,19 @@ function createMarketsTable(markets) {
     row.insertCell().appendChild(document.createTextNode(market.label));
     const td2 = row.insertCell()
     td2.appendChild(document.createTextNode(market.last));
-    marketIdToPriceCell[market.id] = td2;
+    priceCellIndex.set(market.id, td2);
   }
 
+  marketIdToPriceCell = priceCellIndex;
   log("markets table created in " + (performance.now() - start) + " ms");
 }
 
 // apply mutations in one place, also log important events
 function updateMarkets(changes) {
-  for (const mid in changes.changed) {
-    const market = markets[mid];
-    const mchange = changes.changed[mid];
-    for (const key in mchange) {
-      const [o, n] = mchange[key];
+  for (const [mid, marketChange] of changes.changed) {
+    const market = markets.get(mid);
+    for (const key in marketChange) {
+      const [o, n] = marketChange[key];
       market[key] = n;
       if (key === "isActive") {
         if (n === true) {
@@ -160,14 +160,13 @@ function updateMarkets(changes) {
       }
     }
   }
-  for (const mid in changes.added) {
-    const newMarket = changes.added[mid];
-    markets[mid] = newMarket;
+  for (const [mid, newMarket] of changes.added) {
+    markets.set(mid, newMarket);
     log("market added: " + JSON.stringify(newMarket));
   }
-  for (const mid in changes.removed) {
-    delete markets[mid];
-    log("market removed: " + JSON.stringify(changes.removed[mid]));
+  for (const [mid, removedMarket] of changes.removed) {
+    markets.delete(mid);
+    log("market removed: " + JSON.stringify(removedMarket));
   }
 }
 
@@ -185,9 +184,8 @@ function updateMarketsTable(changes) {
   // just one expensive reflow between them.
 
   // part 1: clear change styling from changed cells
-  const changedKeys = Object.keys(changed);
-  for (const mid of changedKeys) {
-    marketIdToPriceCell[mid].classList.remove("changed", "positive", "negative");
+  for (const mid of changed.keys()) {
+    marketIdToPriceCell.get(mid).classList.remove("changed", "positive", "negative");
   }
 
   // HACK: trigger a synchronous (!) reflow to restart possibly running CSS
@@ -197,11 +195,10 @@ function updateMarketsTable(changes) {
   void marketsTable.offsetWidth; // you're googling 'void' now aren't you? ;)
 
   // part 2: apply change styling to changed cells
-  for (const mid of changedKeys) {
-    const marketChange = changed[mid];
-    const td = marketIdToPriceCell[mid];
+  for (const [mid, marketChange] of changed) {
+    const td = marketIdToPriceCell.get(mid);
 
-    const priceChange = marketChange["last"];
+    const priceChange = marketChange.last;
     if (priceChange) {
       const [o, n] = priceChange;
       td.firstChild.nodeValue = n;
@@ -212,7 +209,7 @@ function updateMarketsTable(changes) {
       }
     }
 
-    const isActiveChange = marketChange["isActive"];
+    const isActiveChange = marketChange.isActive;
     if (isActiveChange) {
       const [o, n] = isActiveChange;
       if (n === true) {
@@ -224,7 +221,7 @@ function updateMarketsTable(changes) {
   }
 
   const now = performance.now();
-  log("markets table updated with " + changedKeys.length + " changes in "
+  log("markets table updated with " + changed.size + " changes in "
       + (now - updateStart) + " ms, "
       + (now - statsMarketsTableLastUpdated) + " ms since last time");
   statsMarketsTableLastUpdated = now;
@@ -354,7 +351,7 @@ function updateTickerStatsWs(prevPrice, lastPrice) {
 }
 
 function marketsChangesWs(updates) {
-  const changed = {}, added = {}, removed = {};
+  const changed = new Map(), added = new Map(), removed = new Map();
   // updates look like: [ <chan id>, null,
   // [ <pair id>, "<last trade price>", "<lowest ask>", "<highest bid>",
   //   "<percent change in last 24 h>", "<base currency volume in last 24 h>",
@@ -370,7 +367,7 @@ function marketsChangesWs(updates) {
       last: update[1],
     }
 
-    const market = markets[mid];
+    const market = markets.get(mid);
     if (!market) { // added market
       const newMarket = {
         id: mid,
@@ -379,7 +376,7 @@ function marketsChangesWs(updates) {
         last: trackedData.last,
         isActive: trackedData.isActive,
       };
-      added[mid] = newMarket;
+      added.set(mid, newMarket);
       continue;
     }
 
