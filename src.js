@@ -1,8 +1,8 @@
 "use strict";
 
 // UI access
-const connectBtn = document.getElementById("connect-btn");
-const watchMarketsBtn = document.getElementById("watch-markets-btn");
+const connectWsBtn = document.getElementById("connect-ws-btn");
+const watchMarketsBtn = document.getElementById("watch-markets-http-btn");
 const marketsTable = document.getElementById("markets-table");
 let marketIdToPriceCell; // Map
 
@@ -280,12 +280,12 @@ function toggleMarketsUpdating() {
     marketsUpdateEnabled = false;   // prevent fetchMarketsLoop from setting new timeouts
     clearTimeout(marketsTimeout);   // cancel pending timeouts
     abortController.abort();        // cancel active fetches
-    watchMarketsBtn.value = "Watch markets";
+    watchMarketsBtn.value = "watch http";
   } else {
     console.log("starting markets updates");
     marketsUpdateEnabled = true;
     fetchMarketsLoop();
-    watchMarketsBtn.value = "Unwatch markets";
+    watchMarketsBtn.value = "unwatch http";
   }
 }
 
@@ -309,8 +309,8 @@ function subscribeMarkets() {
 function onDisconnected(evt) {
   console.log("ws disconnected from", ws.url);
   ws.sock = null;
-  connectBtn.value = "Connect";
-  connectBtn.onclick = connect;
+  connectWsBtn.value = "connect ws";
+  connectWsBtn.onclick = connect;
 }
 
 function disconnect() {
@@ -327,8 +327,8 @@ function onConnected(evt) {
 
   for (const req of queue) { wsSend(req); } // drain queue
 
-  connectBtn.value = "Disconnect";
-  connectBtn.onclick = disconnect;
+  connectWsBtn.value = "disconnect ws";
+  connectWsBtn.onclick = disconnect;
 }
 
 function updateTickerStatsWs(prevPrice, lastPrice) {
@@ -410,8 +410,8 @@ function onMessage(evt) {
 }
 
 function onConnecting() {
-  connectBtn.value = "Cancel connect";
-  connectBtn.onclick = disconnect;
+  connectWsBtn.value = "cancel connect ws";
+  connectWsBtn.onclick = disconnect;
 }
 
 function connect() {
@@ -442,13 +442,13 @@ function connect() {
 }
 
 function initUi() {
-  const updateBtn = document.getElementById("update-markets-btn");
+  const updateBtn = document.getElementById("update-markets-http-btn");
   updateBtn.disabled = false;
   updateBtn.onclick = (e => asyncFetchMarkets());
   watchMarketsBtn.disabled = false;
   watchMarketsBtn.onclick = toggleMarketsUpdating;
-  connectBtn.disabled = false;
-  connectBtn.onclick = connect;
+  connectWsBtn.disabled = false;
+  connectWsBtn.onclick = connect;
 }
 
 initUi();
