@@ -28,7 +28,7 @@ let statsTickerPriceUnchanged = 0;
 let statsMarketsTableLastUpdated = performance.now();
 
 // convert ticker data we care about
-function trackedMarket(tickerItem) {
+function marketUpdate(tickerItem) {
   return {
     isActive: (tickerItem.isFrozen !== "1"),
     last: tickerItem.last,
@@ -36,11 +36,11 @@ function trackedMarket(tickerItem) {
 }
 
 function createMarket(tickerItem, name) {
-  const mi = trackedMarket(tickerItem);
-  mi.id = tickerItem.id;
+  const m = marketUpdate(tickerItem);
+  m.id = tickerItem.id;
   const [base, quote] = name.split("_");
-  mi.label = quote + "/" + base;
-  return mi;
+  m.label = quote + "/" + base;
+  return m;
 }
 
 // transform ticker response: key it by market id and add display names
@@ -94,8 +94,7 @@ function marketsDiffHttp(tickerResp) {
     const mid = tickerItem.id;
     const market = markets.get(mid);
     if (market) { // exists, possibly changed item
-      const ttd = trackedMarket(tickerItem);
-      const c = marketChange(market, ttd);
+      const c = marketChange(market, marketUpdate(tickerItem));
       if (c) { changes.set(mid, c); }
       oldIds.delete(mid);
     } else { // added item
@@ -358,7 +357,7 @@ function marketsDiffWs(updates) {
     const update = updates[i];
     const mid = update[0];
 
-    const trackedData = {
+    const marketUpd = {
       isActive: (update[7] !== 1),
       last: update[1],
     }
@@ -369,15 +368,15 @@ function marketsDiffWs(updates) {
         id: mid,
         name: "UNKNOWN_" + mid,
         label: "UNKNOWN/UNKNOWN",
-        last: trackedData.last,
-        isActive: trackedData.isActive,
+        last: marketUpd.last,
+        isActive: marketUpd.isActive,
       };
       additions.set(mid, newMarket);
       continue;
     }
 
-    updateTickerStatsWs(market.last, trackedData.last);
-    const c = marketChange(market, trackedData);
+    updateTickerStatsWs(market.last, marketUpd.last);
+    const c = marketChange(market, marketUpd);
     if (c) { changes.set(mid, c); }
   }
 
