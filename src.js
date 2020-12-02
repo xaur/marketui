@@ -56,7 +56,7 @@ function createMarkets(tickerResp) {
     }
   }
 
-  console.log("markets created in", (performance.now() - start), "ms");
+  console.log("markets created in %.1f ms", performance.now() - start);
   return markets;
 }
 
@@ -104,7 +104,7 @@ function marketsDiffHttp(tickerResp) {
     removals.set(id, markets.get(id));
   }
 
-  console.log("markets change computed in", (performance.now() - start), "ms");
+  console.log("markets change computed in %.1f ms", performance.now() - start);
   return diffOrNull(changes, additions, removals);
 }
 
@@ -133,7 +133,7 @@ function createMarketsTable(markets) {
   }
 
   marketIdToPriceCell = priceCellIndex;
-  console.log("markets table created in", (performance.now() - start), "ms");
+  console.log("markets table created in %.1f ms", performance.now() - start);
 }
 
 // apply mutations in one place, also log important events
@@ -212,9 +212,10 @@ function updateMarketsTable(diff) {
   }
 
   const now = performance.now();
-  console.log("markets table updated with", changes.size, "changes in",
-    (now - updateStart), "ms,", (now - statsMarketsTableLastUpdated),
-    "ms since last time");
+  console.log("markets table updated in %.1f ms with %d changes, "
+    + "%d ms since last update", (now - updateStart), changes.size,
+    (now - statsMarketsTableLastUpdated),
+  );
   statsMarketsTableLastUpdated = now;
 }
 
@@ -233,8 +234,8 @@ function asyncFetchMarkets() {
   const promise = fetch(url, { signal: abortController.signal })
     .then((response) => {
       if (response.ok) {
-        console.log("http ticker response begins after", (performance.now() - start),
-          "ms, status", response.status);
+        console.log("http ticker response begins after %d ms, status %s",
+          (performance.now() - start), response.status);
         return response.json();
       } else {
         console.log("http ticker response not ok");
@@ -242,7 +243,7 @@ function asyncFetchMarkets() {
       }
     })
     .then((json) => {
-      console.log("http ticker finishes after", (performance.now() - start), "ms");
+      console.log("http ticker finishes after %d ms", performance.now() - start);
       if (json.error) {
         throw new Error("Poloniex API error: " + json.error);
       }
@@ -268,7 +269,7 @@ function asyncFetchMarkets() {
 function fetchMarketsLoop() {
   asyncFetchMarkets().then((markets) => {
     if (marketsUpdateEnabled) {
-      console.log("scheduling markets update in", marketsUpdateInterval, "ms");
+      console.log("scheduling markets update in %d ms", marketsUpdateInterval);
       marketsTimeout = setTimeout(fetchMarketsLoop, marketsUpdateInterval);
     }
   });
@@ -320,7 +321,7 @@ function disconnect() {
 
 function onConnected(evt) {
   console.timeEnd("ws connected");
-  console.log("ws sending", ws.queue.length, " queued messages");
+  console.log("ws sending %d queued messages", ws.queue.length);
   // copy and reset shared queue to avoid infinite loops when disconnected
   const queue = ws.queue;
   ws.queue = [];
@@ -335,12 +336,12 @@ function updateTickerStatsWs(prevPrice, lastPrice) {
   if (prevPrice === lastPrice) {
     statsTickerPriceUnchanged += 1;
     if (statsTickerPriceUnchanged % 400 === 0) {
-      console.log("ws ticker price unchanged:", statsTickerPriceUnchanged);
+      console.log("ws ticker price unchanged: %d", statsTickerPriceUnchanged);
     }
   } else {
     statsTickerPriceChanges += 1;
     if (statsTickerPriceChanges % 40 === 0) {
-      console.log("ws ticker price changes:", statsTickerPriceChanges);
+      console.log("ws ticker price changes: %d", statsTickerPriceChanges);
     }
   }
 }
@@ -388,8 +389,8 @@ function marketsDiffWs(updates) {
 
 function updateHeartbeatStatsWs() {
   statsHeartbeats += 1;
-  if (statsHeartbeats % 10 === 0) { 
-    console.log("ws heartbeats:", statsHeartbeats);
+  if (statsHeartbeats % 10 === 0) {
+    console.log("ws heartbeats: %d", statsHeartbeats);
   }
 }
 
@@ -426,7 +427,7 @@ function connect() {
         // only subscribe to updates if markets db was populated
         subscribeMarkets();
       }
-    });    
+    });
   }
 
   console.time("ws connected");
