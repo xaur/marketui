@@ -232,7 +232,7 @@ function asyncFetchMarkets() {
   abortController = new AbortController();
   const start = performance.now();
   const promise = fetch(url, { signal: abortController.signal })
-    .then(function(response) {
+    .then((response) => {
       if (response.ok) {
         log("http ticker response begins after " + (performance.now() - start)
             + " ms, status " + response.status);
@@ -242,7 +242,7 @@ function asyncFetchMarkets() {
         throw new Error("Failed to fetch ticker, status " + response.status);
       }
     })
-    .then(function(json) {
+    .then((json) => {
       log("http ticker finishes after " + (performance.now() - start) + " ms");
       if (json.error) {
         throw new Error("Poloniex API error: " + json.error);
@@ -259,7 +259,7 @@ function asyncFetchMarkets() {
       }
       return markets;
     })
-    .catch(function(e) {
+    .catch((e) => {
       if (e.name === "AbortError") {
         log("aborted: " + e);
       } else {
@@ -271,7 +271,7 @@ function asyncFetchMarkets() {
 }
 
 function fetchMarketsLoop() {
-  asyncFetchMarkets().then(function(markets) {
+  asyncFetchMarkets().then((markets) => {
     if (marketsUpdateEnabled) {
       log("scheduling markets update in " + marketsUpdateInterval + " ms");
       marketsTimeout = setTimeout(fetchMarketsLoop, marketsUpdateInterval);
@@ -430,7 +430,7 @@ function connect() {
     subscribeMarkets();
   } else {
     log("fetching markets data for the first time");
-    asyncFetchMarkets().then(function(markets) {
+    asyncFetchMarkets().then((markets) => {
       if (markets) {
         // only subscribe to updates if markets db was populated
         subscribeMarkets();
