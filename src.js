@@ -367,7 +367,6 @@ function marketsDiffWs(updates) {
     if (!market) { // added market
       const newMarket = {
         id: mid,
-        name: "UNKNOWN_" + mid,
         label: "UNKNOWN/UNKNOWN",
         last: marketUpd.last,
         isActive: marketUpd.isActive,
