@@ -48,7 +48,7 @@ function createMarkets(tickerResp) {
   const start = performance.now();
 
   const markets = new Map();
-  for (const marketName of Object.keys(tickerResp)) {
+  for (const marketName in tickerResp) {
     const market = createMarket(tickerResp[marketName], marketName);
     markets.set(market.id, market);
     if (!market.isActive) {
@@ -56,7 +56,7 @@ function createMarkets(tickerResp) {
     }
   }
 
-  console.log("markets created in %.1f ms", performance.now() - start);
+  console.log("markets Map in %.1f ms", performance.now() - start);
   return markets;
 }
 
@@ -87,7 +87,7 @@ function marketsDiffHttp(tickerResp) {
   const oldIds = new Set(markets.keys());
 
   // compute keyset difference along the way
-  for (const marketName of Object.keys(tickerResp)) {
+  for (const marketName in tickerResp) {
     const tickerItem = tickerResp[marketName];
     const mid = tickerItem.id;
     const market = markets.get(mid);
@@ -104,7 +104,7 @@ function marketsDiffHttp(tickerResp) {
     removals.set(id, markets.get(id));
   }
 
-  console.log("markets change computed in %.1f ms", performance.now() - start);
+  console.log("markets diff computed in %.1f ms", performance.now() - start);
   return diffOrNull(changes, additions, removals);
 }
 
