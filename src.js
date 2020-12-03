@@ -442,6 +442,11 @@ function connect() {
   onConnecting();
 }
 
+function marketsTableClick(e) {
+  const tr = event.target.closest("tr");
+  console.log("clicked", tr);
+}
+
 function initUi() {
   const updateBtn = document.getElementById("update-markets-http-btn");
   updateBtn.disabled = false;
@@ -450,6 +455,7 @@ function initUi() {
   watchMarketsBtn.onclick = toggleMarketsUpdating;
   connectWsBtn.disabled = false;
   connectWsBtn.onclick = connect;
+  marketsTable.onclick = marketsTableClick;
 }
 
 initUi();
