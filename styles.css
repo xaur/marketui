@@ -6,6 +6,11 @@ table {
   border-collapse: collapse;
 }
 
+.row-clickable tbody tr:hover {
+  background-color: #dae7e6;
+  cursor: pointer;
+}
+
 .inactive {
   color: #91bbbc;
 }
