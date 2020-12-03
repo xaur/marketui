@@ -11,7 +11,7 @@
     .toolbar > * { margin: 0.3em; }
     .flexbox.columns { flex-grow: 1; }
     .flexbox.columns > *:not(:last-child) { margin-right: 0.4em; }
-    #markets-table td:nth-child(2) { text-align: right; }
+    .col2-right tbody td:nth-child(2) { text-align: right; }
   </style>
 </head>
 
@@ -28,7 +28,7 @@
   <div class="flexbox columns" style="overflow: hidden;">
     <div style="min-width: 300px; width: 492px;" class="bghint"></div>
     <div style="min-width: 200px; width: 300px; overflow: hidden scroll;" class="bghint">
-      <table class="row-clickable">
+      <table class="row-clickable col2-right">
         <thead><tr><th>market</th><th>price</th></thead>
         <tbody id="markets-table"></tbody>
       </table>
