@@ -123,6 +123,7 @@ function createMarketsTable(markets) {
   const priceCellIndex = new Map();
   for (const market of marketsArr) {
     const row = marketsTable.insertRow();
+    row.dataset.id = market.id;
     if (!market.isActive) {
       row.classList.add("inactive");
     }
@@ -444,7 +445,7 @@ function connect() {
 
 function marketsTableClick(e) {
   const tr = event.target.closest("tr");
-  console.log("clicked", tr);
+  console.log("clicked market", tr.dataset.id);
 }
 
 function initUi() {
