@@ -248,6 +248,7 @@ function asyncFetchPolo(url) {
       if (json.error) {
         throw new Error("Poloniex API error: " + json.error);
       }
+      return json;
     })
     .catch((e) => {
       if (e.name === "AbortError") {
