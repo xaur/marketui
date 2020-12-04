@@ -2,7 +2,7 @@
 
 // UI access
 const connectWsBtn = document.getElementById("connect-ws-btn");
-const watchMarketsBtn = document.getElementById("watch-markets-http-btn");
+const watchMarketsBtn = document.getElementById("watch-markets-btn");
 const marketsTbody = document.getElementById("markets-tbody");
 let marketIdToPriceCell; // Map
 
@@ -479,7 +479,7 @@ function marketsTableClick(e) {
 }
 
 function initUi() {
-  const updateBtn = document.getElementById("update-markets-http-btn");
+  const updateBtn = document.getElementById("update-markets-btn");
   updateBtn.disabled = false;
   updateBtn.onclick = (e => asyncFetchMarkets());
   watchMarketsBtn.disabled = false;
