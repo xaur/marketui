@@ -28,19 +28,21 @@
     <input id="update-books-btn" type="button" value="up books" disabled>
   </div>
 
-  <div class="flexbox columns" style="overflow: hidden scroll; padding: 0 0 0.5em 0.5em;">
+  <div class="flexbox columns" style="overflow: hidden; padding: 0 0 0.5em 0.5em;">
+    <!-- order books widget -->
     <div style="min-width: 400px; width: 692px; justify-content: space-between; padding: 0 1em" class="flexbox bghint">
-      <table class="cols-right pad" id="sell-orders-table" style="">
+      <table class="cols-right pad" id="sell-orders-table">
         <thead><tr><th>size</th><th>price</th></thead>
         <tbody id="sell-orders-tbody">
         </tbody>
       </table>
-      <table class="cols-right pad" id="buy-orders-table" style="overflow: hidden scroll;">
+      <table class="cols-right pad" id="buy-orders-table">
         <thead><tr><th>price</th><th>size</th></thead>
         <tbody id="buy-orders-tbody">
         </tbody>
       </table>
     </div>
+    <!-- markets table widget -->
     <div style="min-width: 200px; width: 300px; overflow: hidden scroll;" class="bghint">
       <table class="row-clickable col2-right" id="markets-table">
         <thead><tr><th>market</th><th>price</th></thead>
