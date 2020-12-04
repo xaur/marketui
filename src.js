@@ -23,6 +23,7 @@ const ws = {
   sock: undefined,
   queue: [],
 };
+const bookDepth = 20;
 
 // stats
 let statsHeartbeats = 0;
@@ -42,6 +43,8 @@ function createMarket(tickerItem, name) {
   const m = marketUpdate(tickerItem);
   m.id = tickerItem.id;
   const [base, quote] = name.split("_");
+  m.base = base;
+  m.quote = quote;
   m.label = quote + "/" + base;
   return m;
 }
@@ -126,7 +129,7 @@ function createMarketsTable(markets) {
   const priceCellIndex = new Map();
   for (const market of marketsArr) {
     const row = marketsTbody.insertRow();
-    row.dataset.id = market.id;
+    row.dataset.id = market.id; // String = Number
     if (!market.isActive) {
       row.classList.add("inactive");
     }
@@ -273,7 +276,6 @@ function asyncFetchMarkets() {
     } else {
       markets = createMarkets(json);
       createMarketsTable(markets);
-      updateBooksBtn.disabled = false;
     }
     // return a true-ish value to signal downstream consumers that no error
     // took place
@@ -385,6 +387,8 @@ function marketsDiffWs(updates) {
       const newMarket = {
         id: mid,
         label: "UNKNOWN/UNKNOWN",
+        base: "UNKNOWN",
+        quote: "UNKNOWN",
         last: marketUpd.last,
         isActive: marketUpd.isActive,
       };
@@ -466,8 +470,8 @@ function format(template, params) { // sigh ES6
   return res;
 }
 
-function asyncFetchOrderBooks(marketId, depth) {
-  const url = format(orderBookUrl, { pair: "BTC_DCR", depth: depth });
+function asyncFetchOrderBooks(pair, depth) {
+  const url = format(orderBookUrl, { pair: pair, depth: depth });
   const {promise, aborter} = asyncFetchPolo(url);
   const processed = promise.then(json => {
     console.log(json);
@@ -476,9 +480,26 @@ function asyncFetchOrderBooks(marketId, depth) {
   return processed;
 }
 
+function fetchBooks(marketId) {
+  const m = markets.get(marketId);
+  const pair = m.base + "_" + m.quote;
+  console.log("fetching book for %s (%d)", pair, marketId);
+  asyncFetchOrderBooks(pair, bookDepth);
+}
+
 function marketsTableClick(e) {
   const tr = event.target.closest("tr");
-  console.log("clicked market", tr.dataset.id);
+  const mids = tr.dataset.id;
+  marketsTable.dataset.selectedMarketId = mids; // String = String
+  updateBooksBtn.disabled = false;
+  const mid = parseInt(mids);
+  console.log("selected market", mid);
+  fetchBooks(mid);
+}
+
+function updateBooksClick(e) {
+  const mid = parseInt(marketsTable.dataset.selectedMarketId);
+  fetchBooks(mid);
 }
 
 function initUi() {
@@ -486,7 +507,7 @@ function initUi() {
   updateBtn.disabled = false;
   updateBtn.onclick = (e => asyncFetchMarkets());
 
-  updateBooksBtn.onclick = (e => asyncFetchOrderBooks(162, 10));
+  updateBooksBtn.onclick = updateBooksClick;
 
   watchMarketsBtn.disabled = false;
   watchMarketsBtn.onclick = toggleMarketsUpdating;
