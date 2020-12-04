@@ -256,6 +256,7 @@ function asyncFetchPolo(url) {
       } else {
         console.error("error fetching:", e);
       }
+      throw e;
     });
   console.log("http fetch initiated");
   return { promise, abortController };
@@ -273,6 +274,8 @@ function asyncFetchMarkets() {
     // return a true-ish value to signal downstream consumers that no error
     // took place
     return markets;
+  }).catch(e => {
+    console.log(e);
   });
   abortController = aborter;
   return promise;
