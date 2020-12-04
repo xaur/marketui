@@ -6,7 +6,10 @@ const watchMarketsBtn = document.getElementById("watch-markets-btn");
 const marketsTable = document.getElementById("markets-table");
 const marketsTbody = document.getElementById("markets-tbody");
 let marketIdToPriceCell; // Map
+
 const updateBooksBtn = document.getElementById("update-books-btn");
+const sellOrdersTbody = document.getElementById("sell-orders-tbody");
+const buyOrdersTbody = document.getElementById("buy-orders-tbody");
 
 // https://docs.poloniex.com/
 const tickerUrl = "https://poloniex.com/public?command=returnTicker";
@@ -23,7 +26,7 @@ const ws = {
   sock: undefined,
   queue: [],
 };
-const bookDepth = 20;
+const bookDepth = 100;
 
 // stats
 let statsHeartbeats = 0;
@@ -470,11 +473,22 @@ function format(template, params) { // sigh ES6
   return res;
 }
 
+function createTable(tbody, rows, order = [0, 1]) {
+  tbody.innerHTML = "";
+  for (const row of rows) {
+    const tr = tbody.insertRow();
+    for (const ci of order) {
+      tr.insertCell().appendChild(document.createTextNode(parseFloat(row[ci]).toFixed(8)));
+    }
+  }
+}
+
 function asyncFetchOrderBooks(pair, depth) {
   const url = format(orderBookUrl, { pair: pair, depth: depth });
   const {promise, aborter} = asyncFetchPolo(url);
   const processed = promise.then(json => {
-    console.log(json);
+    createTable(sellOrdersTbody, json.asks, [1, 0]);
+    createTable(buyOrdersTbody, json.bids);
   });
   // todo: set aborter
   return processed;
