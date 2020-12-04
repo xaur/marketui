@@ -482,6 +482,11 @@ function initUi() {
   const updateBtn = document.getElementById("update-markets-btn");
   updateBtn.disabled = false;
   updateBtn.onclick = (e => asyncFetchMarkets());
+
+  const updateBooksBtn = document.getElementById("update-books-btn");
+  updateBooksBtn.disabled = false;
+  updateBooksBtn.onclick = (e => asyncFetchOrderBooks(162, 10));
+
   watchMarketsBtn.disabled = false;
   watchMarketsBtn.onclick = toggleMarketsUpdating;
   connectWsBtn.disabled = false;
