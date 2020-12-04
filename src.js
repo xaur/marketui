@@ -3,8 +3,10 @@
 // UI access
 const connectWsBtn = document.getElementById("connect-ws-btn");
 const watchMarketsBtn = document.getElementById("watch-markets-btn");
+const marketsTable = document.getElementById("markets-table");
 const marketsTbody = document.getElementById("markets-tbody");
 let marketIdToPriceCell; // Map
+const updateBooksBtn = document.getElementById("update-books-btn");
 
 // https://docs.poloniex.com/
 const tickerUrl = "https://poloniex.com/public?command=returnTicker";
@@ -271,6 +273,7 @@ function asyncFetchMarkets() {
     } else {
       markets = createMarkets(json);
       createMarketsTable(markets);
+      updateBooksBtn.disabled = false;
     }
     // return a true-ish value to signal downstream consumers that no error
     // took place
@@ -483,8 +486,6 @@ function initUi() {
   updateBtn.disabled = false;
   updateBtn.onclick = (e => asyncFetchMarkets());
 
-  const updateBooksBtn = document.getElementById("update-books-btn");
-  updateBooksBtn.disabled = false;
   updateBooksBtn.onclick = (e => asyncFetchOrderBooks(162, 10));
 
   watchMarketsBtn.disabled = false;
