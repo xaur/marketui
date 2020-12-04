@@ -3,7 +3,7 @@
 // UI access
 const connectWsBtn = document.getElementById("connect-ws-btn");
 const watchMarketsBtn = document.getElementById("watch-markets-http-btn");
-const marketsTable = document.getElementById("markets-table");
+const marketsTbody = document.getElementById("markets-tbody");
 let marketIdToPriceCell; // Map
 
 // https://docs.poloniex.com/
@@ -118,12 +118,12 @@ function compareByLabel(a, b) {
 function createMarketsTable(markets) {
   const start = performance.now();
 
-  marketsTable.innerHTML = "";
+  marketsTbody.innerHTML = "";
   const marketsArr = Array.from(markets.values());
   marketsArr.sort(compareByLabel);
   const priceCellIndex = new Map();
   for (const market of marketsArr) {
-    const row = marketsTable.insertRow();
+    const row = marketsTbody.insertRow();
     row.dataset.id = market.id;
     if (!market.isActive) {
       row.classList.add("inactive");
@@ -186,7 +186,7 @@ function updateMarketsTable(diff) {
   // animations, thanks to https://css-tricks.com/restart-css-animation/
   // more on what triggers reflows here:
   // https://gist.github.com/paulirish/5d52fb081b3570c81e3a
-  void marketsTable.offsetWidth; // you're googling 'void' now aren't you? ;)
+  void marketsTbody.offsetWidth; // you're googling 'void' now aren't you? ;)
 
   // part 2: apply change styling to changed cells
   for (const [mid, marketChange] of changes) {
@@ -486,7 +486,7 @@ function initUi() {
   watchMarketsBtn.onclick = toggleMarketsUpdating;
   connectWsBtn.disabled = false;
   connectWsBtn.onclick = connect;
-  marketsTable.onclick = marketsTableClick;
+  marketsTbody.onclick = marketsTableClick;
 }
 
 initUi();
