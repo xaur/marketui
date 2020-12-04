@@ -8,6 +8,7 @@ let marketIdToPriceCell; // Map
 
 // https://docs.poloniex.com/
 const tickerUrl = "https://poloniex.com/public?command=returnTicker";
+const orderBookUrl = "https://poloniex.com/public?command=returnOrderBook&currencyPair={pair}&depth={depth}"
 
 // state
 let markets; // Map
@@ -452,6 +453,24 @@ function connect() {
   ws.sock.onmessage = onMessage;
 
   onConnecting();
+}
+
+function format(template, params) { // sigh ES6
+  let res = template;
+  for (const key in params) {
+    res = res.replace("{" + key + "}", params[key]);
+  }
+  return res;
+}
+
+function asyncFetchOrderBooks(marketId, depth) {
+  const url = format(orderBookUrl, { pair: "BTC_DCR", depth: depth });
+  const {promise, aborter} = asyncFetchPolo(url);
+  const processed = promise.then(json => {
+    console.log(json);
+  });
+  // todo: set aborter
+  return processed;
 }
 
 function marketsTableClick(e) {
