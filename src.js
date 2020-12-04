@@ -492,6 +492,10 @@ function marketsTableClick(e) {
   const mids = tr.dataset.id;
   marketsTable.dataset.selectedMarketId = mids; // String = String
   updateBooksBtn.disabled = false;
+  marketsTbody.querySelectorAll(".row-selected").forEach(el =>
+    el.classList.remove("row-selected"));
+  tr.classList.add("row-selected");
+
   const mid = parseInt(mids);
   console.log("selected market", mid);
   fetchBooks(mid);
