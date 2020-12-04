@@ -6,6 +6,10 @@ table {
   border-collapse: collapse;
 }
 
+table thead {
+  background-color: #b3d5d6;
+}
+
 .row-clickable tbody tr:hover {
   background-color: #dae7e6;
   cursor: pointer;
