@@ -14,7 +14,7 @@ let markets; // Map
 let marketsUpdateEnabled = false;
 let marketsUpdateInterval = 3000;
 let marketsTimeout;
-let abortController;
+let marketsFetchAborter;
 const ws = {
   url: "wss://api2.poloniex.com",
   sock: undefined,
@@ -230,9 +230,9 @@ function diffAndUpdate(differ, data) {
 }
 
 function asyncFetchPolo(url) {
-  const abortController = new AbortController();
+  const aborter = new AbortController();
   const start = performance.now();
-  const promise = fetch(url, { signal: abortController.signal })
+  const promise = fetch(url, { signal: aborter.signal })
     .then((response) => {
       if (response.ok) {
         console.log("http response begins after %d ms, status %s",
@@ -252,14 +252,14 @@ function asyncFetchPolo(url) {
     })
     .catch((e) => {
       if (e.name === "AbortError") {
-        console.log("aborted:", e);
+        console.log("fetch aborted:", url);
       } else {
         console.error("error fetching:", e);
       }
       throw e;
     });
   console.log("http fetch initiated");
-  return { promise, abortController };
+  return { promise, aborter };
 }
 
 function asyncFetchMarkets() {
@@ -275,7 +275,7 @@ function asyncFetchMarkets() {
     // took place
     return markets;
   }).catch(e => null);
-  abortController = aborter;
+  marketsFetchAborter = aborter;
   return updated;
 }
 
@@ -293,7 +293,7 @@ function toggleMarketsUpdating() {
     console.log("stopping markets updates");
     marketsUpdateEnabled = false;   // prevent fetchMarketsLoop from setting new timeouts
     clearTimeout(marketsTimeout);   // cancel pending timeouts
-    abortController.abort();        // cancel active fetches
+    marketsFetchAborter.abort();    // cancel active fetches
     watchMarketsBtn.value = "watch http";
   } else {
     console.log("starting markets updates");
@@ -329,7 +329,7 @@ function onDisconnected(evt) {
 
 function disconnect() {
   ws.sock.close();
-  abortController.abort();
+  marketsFetchAborter.abort();
 }
 
 function onConnected(evt) {
