@@ -229,33 +229,25 @@ function diffAndUpdate(differ, data) {
   }
 }
 
-function asyncFetchMarkets() {
-  const url = tickerUrl;
-  abortController = new AbortController();
+function asyncFetchPolo(url) {
+  const abortController = new AbortController();
   const start = performance.now();
   const promise = fetch(url, { signal: abortController.signal })
     .then((response) => {
       if (response.ok) {
-        console.log("http ticker response begins after %d ms, status %s",
+        console.log("http response begins after %d ms, status %s",
           (performance.now() - start), response.status);
         return response.json();
       } else {
-        console.log("http ticker response not ok");
-        throw new Error("Failed to fetch ticker, status " + response.status);
+        console.log("http response not ok");
+        throw new Error("Failed to fetch, status " + response.status);
       }
     })
     .then((json) => {
-      console.log("http ticker finishes after %d ms", performance.now() - start);
+      console.log("http response finishes after %d ms", performance.now() - start);
       if (json.error) {
         throw new Error("Poloniex API error: " + json.error);
       }
-      if (markets) {
-        diffAndUpdate(marketsDiffHttp, json);
-      } else {
-        markets = createMarkets(json);
-        createMarketsTable(markets);
-      }
-      return markets;
     })
     .catch((e) => {
       if (e.name === "AbortError") {
@@ -264,7 +256,24 @@ function asyncFetchMarkets() {
         console.error("error fetching:", e);
       }
     });
-  console.log("http ticker fetch initiated");
+  console.log("http fetch initiated");
+  return { promise, abortController };
+}
+
+function asyncFetchMarkets() {
+  const {promise, aborter} = asyncFetchPolo(tickerUrl);
+  promise.then((json) => {
+    if (markets) {
+      diffAndUpdate(marketsDiffHttp, json);
+    } else {
+      markets = createMarkets(json);
+      createMarketsTable(markets);
+    }
+    // return a true-ish value to signal downstream consumers that no error
+    // took place
+    return markets;
+  });
+  abortController = aborter;
   return promise;
 }
 
