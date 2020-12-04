@@ -264,7 +264,7 @@ function asyncFetchPolo(url) {
 
 function asyncFetchMarkets() {
   const {promise, aborter} = asyncFetchPolo(tickerUrl);
-  promise.then((json) => {
+  const updated = promise.then((json) => {
     if (markets) {
       diffAndUpdate(marketsDiffHttp, json);
     } else {
@@ -278,7 +278,7 @@ function asyncFetchMarkets() {
     console.log(e);
   });
   abortController = aborter;
-  return promise;
+  return updated;
 }
 
 function fetchMarketsLoop() {
