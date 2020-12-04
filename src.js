@@ -274,9 +274,7 @@ function asyncFetchMarkets() {
     // return a true-ish value to signal downstream consumers that no error
     // took place
     return markets;
-  }).catch(e => {
-    console.log(e);
-  });
+  }).catch(e => null);
   abortController = aborter;
   return updated;
 }
