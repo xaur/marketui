@@ -13,9 +13,6 @@ table {
 
 .row-selected {
   background-color: #fbf4c7;
-  border-color: #f7ab1c white;
-  border-width: 1px 0px;
-  border-style: solid;
 }
 
 .inactive {
