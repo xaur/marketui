@@ -10,6 +10,14 @@ table th {
   background-color: #b3d5d6;
 }
 
+table td:not(:last-child) {
+  border-right: 1px solid #e1eeef;
+}
+
+table tr {
+  border-bottom: 1px solid #e1eeef;
+}
+
 .row-clickable tbody tr:hover {
   background-color: #dae7e6;
   cursor: pointer;
