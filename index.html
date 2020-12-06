@@ -9,18 +9,19 @@
     /* reusable layout here, styling in styles.css */
     .flexbox { display: flex; }
     .toolbar > * { margin: 0.3em; }
-    .flexbox.columns { flex-grow: 1; }
-    .flexbox.columns > *:not(:last-child) { margin-right: 0.4em; }
+    .growing { flex-grow: 1; }
+    .gap-children > *:not(:last-child) { margin-right: 0.4em; }
     .col2-right tbody td:nth-child(2) { text-align: right; }
     .cols-right tbody td { text-align: right; }
-    .pad td { padding: 0 0.4em; }
-    .fixed-header thead { position: sticky; top: 0; }
+    .pad-cells td { padding: 0 0.4em; }
+    .sticky-header thead { position: sticky; top: 0; }
   </style>
 </head>
 
 <body style="height: 100%; margin: 0;">
 
-<div style="height: 100%; max-width: 1000px; display: flex; flex-flow: column;">
+<div class="flexbox"
+     style="height: 100%; max-width: 1000px; flex-flow: column;">
 
   <div class="flexbox toolbar"
        style="flex-flow: row-reverse wrap;">
@@ -30,20 +31,20 @@
     <input id="update-books-btn" type="button" value="up books" disabled>
   </div>
 
-  <div class="flexbox columns"
+  <div class="growing flexbox gap-children"
        style="overflow: hidden; padding: 0 0 0.5em 0.5em;">
 
     <!-- order books widget -->
     <div style="min-width: 400px; width: 692px; overflow: hidden; padding: 0 1em"
          class="flexbox bghint">
       <table id="sell-orders-table"
-             class="fixed-header cols-right pad"
+             class="sticky-header cols-right pad-cells"
              style="display: block; overflow: hidden scroll;">
         <thead><tr><th>size</th><th>price</th></tr></thead>
         <tbody id="sell-orders-tbody"></tbody>
       </table>
       <table id="buy-orders-table"
-             class="fixed-header cols-right pad"
+             class="sticky-header cols-right pad-cells"
              style="display: block; overflow: hidden scroll;">
         <thead><tr><th>price</th><th>size</th></tr></thead>
         <tbody id="buy-orders-tbody"></tbody>
@@ -54,7 +55,7 @@
     <div class="bghint"
          style="min-width: 200px; width: 300px; overflow: hidden scroll;">
       <table id="markets-table"
-             class="fixed-header row-clickable col2-right">
+             class="sticky-header row-clickable col2-right">
         <thead><tr><th>market</th><th>price</th></tr></thead>
         <tbody id="markets-tbody"></tbody>
       </table>
