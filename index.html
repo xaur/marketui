@@ -13,7 +13,7 @@
     .gap-children > *:not(:last-child) { margin-right: 0.5em; }
     .col2-right tbody td:nth-child(2) { text-align: right; }
     .cols-right tbody td { text-align: right; }
-    .pad-cells td { padding: 0.1em 0.4em 0; }
+    .pad-cells td { padding: 0.1em 0.3em 0; }
     .sticky-header thead { position: sticky; top: 0; }
     .scroll { overflow: hidden scroll; }
     table.fixed-width {
@@ -24,8 +24,11 @@
     .market-name {
       width: 140px; /* should fit XXXXXXXX/XXXX */
     }
+    .medium-floats {
+      width: 156px; /* should fit 999999.99999999 at 16px font */
+    }
     .large-floats {
-      width: 160px; /* should fit 999999999.99999999 at 16px font */
+      width: 180px; /* should fit 999999999.99999999 at 16px font */
     }
   </style>
 </head>
@@ -33,10 +36,10 @@
 <body style="height: 100%; margin: 0;">
 
 <div class="flexbox"
-     style="height: 100%; max-width: 1000px; flex-flow: column;">
+     style="height: 100%; flex-flow: column;">
 
   <div class="flexbox toolbar"
-       style="flex-flow: row-reverse wrap;">
+       style="max-width: 1030px; flex-flow: row-reverse wrap;">
     <input id="connect-ws-btn" type="button" value="connect ws" disabled>
     <input id="watch-markets-btn" type="button" value="watch mkts" disabled>
     <input id="update-markets-btn" type="button" value="up mkts" disabled>
@@ -54,7 +57,7 @@
                class="fixed-width sticky-header cols-right pad-cells">
           <colgroup>
             <col class="large-floats">
-            <col class="large-floats">
+            <col class="medium-floats">
           </colgroup>
           <thead><tr><th>size</th><th>price</th></tr></thead>
           <tbody id="sell-orders-tbody"></tbody>
@@ -64,7 +67,7 @@
         <table id="buy-orders-table"
                class="fixed-width sticky-header cols-right pad-cells">
           <colgroup>
-            <col class="large-floats">
+            <col class="medium-floats">
             <col class="large-floats">
           </colgroup>
           <thead><tr><th>price</th><th>size</th></tr></thead>
@@ -79,7 +82,7 @@
              class="fixed-width sticky-header pad-cells row-clickable col2-right">
         <colgroup>
           <col class="market-name">
-          <col class="large-floats">
+          <col class="medium-floats">
         </colgroup>
         <thead><tr><th>market</th><th>price</th></tr></thead>
         <tbody id="markets-tbody"></tbody>
