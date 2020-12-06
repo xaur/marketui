@@ -10,7 +10,7 @@
     .flexbox { display: flex; }
     .toolbar > * { margin: 0.3em; }
     .growing { flex-grow: 1; }
-    .gap-children > *:not(:last-child) { margin-right: 0.4em; }
+    .gap-children > *:not(:last-child) { margin-right: 0.5em; }
     .col2-right tbody td:nth-child(2) { text-align: right; }
     .cols-right tbody td { text-align: right; }
     .pad-cells td { padding: 0 0.4em; }
@@ -48,7 +48,7 @@
 
     <!-- order books widget -->
     <div style="overflow: hidden;"
-         class="flexbox bghint">
+         class="flexbox bghint gap-children">
       <div class="scroll">
         <table id="sell-orders-table"
                class="fixed-width sticky-header cols-right pad-cells">
