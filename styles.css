@@ -8,6 +8,12 @@ table {
 
 table th {
   background-color: #b3d5d6;
+  /* somehow border doesn't work on position: sticky so hack it around */
+  box-shadow: 0 0 0 1px #e1eeef;
+}
+
+table.no-col-border th {
+  box-shadow: none;
 }
 
 table td:not(:last-child) {
