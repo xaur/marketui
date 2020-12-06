@@ -13,7 +13,7 @@
     .gap-children > *:not(:last-child) { margin-right: 0.5em; }
     .col2-right tbody td:nth-child(2) { text-align: right; }
     .cols-right tbody td { text-align: right; }
-    .pad-cells td { padding: 0 0.4em; }
+    .pad-cells td { padding: 0.1em 0.4em 0; }
     .sticky-header thead { position: sticky; top: 0; }
     .scroll { overflow: hidden scroll; }
     table.fixed-width {
@@ -76,7 +76,7 @@
     <!-- markets table widget -->
     <div class="scroll bghint">
       <table id="markets-table"
-             class="fixed-width sticky-header row-clickable col2-right">
+             class="fixed-width sticky-header pad-cells row-clickable col2-right">
         <colgroup>
           <col class="market-name">
           <col class="large-floats">
