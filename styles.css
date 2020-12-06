@@ -14,6 +14,11 @@ table td:not(:last-child) {
   border-right: 1px solid #e1eeef;
 }
 
+/* this must come after the previous `table td` rule */
+table.no-col-border td {
+  border-right: none;
+}
+
 table tr {
   border-bottom: 1px solid #e1eeef;
 }
