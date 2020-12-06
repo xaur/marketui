@@ -6,7 +6,7 @@ table {
   border-collapse: collapse;
 }
 
-table thead {
+table th {
   background-color: #b3d5d6;
 }
 
