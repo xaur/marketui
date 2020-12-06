@@ -16,6 +16,17 @@
     .pad-cells td { padding: 0 0.4em; }
     .sticky-header thead { position: sticky; top: 0; }
     .scroll { overflow: hidden scroll; }
+    table.fixed-width {
+      table-layout: fixed;
+      width: 1px; /* must be overriden by columns, see table-layout spec */
+    }
+    table.fixed-width td { overflow: hidden; }
+    .market-name {
+      width: 140px; /* should fit XXXXXXXX/XXXX */
+    }
+    .large-floats {
+      width: 160px; /* should fit 999999999.99999999 at 16px font */
+    }
   </style>
 </head>
 
@@ -40,14 +51,22 @@
          class="flexbox bghint">
       <div class="scroll">
         <table id="sell-orders-table"
-               class="sticky-header cols-right pad-cells">
+               class="fixed-width sticky-header cols-right pad-cells">
+          <colgroup>
+            <col class="large-floats">
+            <col class="large-floats">
+          </colgroup>
           <thead><tr><th>size</th><th>price</th></tr></thead>
           <tbody id="sell-orders-tbody"></tbody>
         </table>
       </div>
       <div class="scroll">
         <table id="buy-orders-table"
-               class="sticky-header cols-right pad-cells">
+               class="fixed-width sticky-header cols-right pad-cells">
+          <colgroup>
+            <col class="large-floats">
+            <col class="large-floats">
+          </colgroup>
           <thead><tr><th>price</th><th>size</th></tr></thead>
           <tbody id="buy-orders-tbody"></tbody>
         </table>
@@ -58,7 +77,11 @@
     <div class="scroll bghint"
          style="min-width: 200px; width: 300px;">
       <table id="markets-table"
-             class="sticky-header row-clickable col2-right">
+             class="fixed-width sticky-header row-clickable col2-right">
+        <colgroup>
+          <col class="market-name">
+          <col class="large-floats">
+        </colgroup>
         <thead><tr><th>market</th><th>price</th></tr></thead>
         <tbody id="markets-tbody"></tbody>
       </table>
