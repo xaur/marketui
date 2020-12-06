@@ -15,6 +15,7 @@
     .cols-right tbody td { text-align: right; }
     .pad-cells td { padding: 0 0.4em; }
     .sticky-header thead { position: sticky; top: 0; }
+    .scroll { overflow: hidden scroll; }
   </style>
 </head>
 
@@ -38,22 +39,22 @@
     <div style="min-width: 400px; width: 692px; overflow: hidden; padding: 0 1em"
          class="flexbox bghint">
       <table id="sell-orders-table"
-             class="sticky-header cols-right pad-cells"
-             style="display: block; overflow: hidden scroll;">
+             class="scroll sticky-header cols-right pad-cells"
+             style="display: block;">
         <thead><tr><th>size</th><th>price</th></tr></thead>
         <tbody id="sell-orders-tbody"></tbody>
       </table>
       <table id="buy-orders-table"
-             class="sticky-header cols-right pad-cells"
-             style="display: block; overflow: hidden scroll;">
+             class="scroll sticky-header cols-right pad-cells"
+             style="display: block;">
         <thead><tr><th>price</th><th>size</th></tr></thead>
         <tbody id="buy-orders-tbody"></tbody>
       </table>
     </div>
 
     <!-- markets table widget -->
-    <div class="bghint"
-         style="min-width: 200px; width: 300px; overflow: hidden scroll;">
+    <div class="scroll bghint"
+         style="min-width: 200px; width: 300px;">
       <table id="markets-table"
              class="sticky-header row-clickable col2-right">
         <thead><tr><th>market</th><th>price</th></tr></thead>
