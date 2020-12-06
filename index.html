@@ -22,13 +22,16 @@
     }
     table.fixed-width td { overflow: hidden; }
     .market-name {
-      width: 140px; /* should fit XXXXXXXX/XXXX */
+      /* should fit XXXXXXXX/XXXX (13ch), ~140px at 16px font-size */
+      width: 14ch;
     }
     .medium-floats {
-      width: 156px; /* should fit 999999.99999999 at 16px font */
+      /* should fit 999999.99999999 (15ch), ~156px at 16px font-size */
+      width: 15ch;
     }
     .large-floats {
-      width: 180px; /* should fit 999999999.99999999 at 16px font */
+      /* should fit 999999999.99999999 (18ch), ~180px at 16px font-size */
+      width: 18ch;
     }
   </style>
 </head>
