@@ -38,18 +38,20 @@
     <!-- order books widget -->
     <div style="min-width: 400px; width: 692px; overflow: hidden; padding: 0 1em"
          class="flexbox bghint">
-      <table id="sell-orders-table"
-             class="scroll sticky-header cols-right pad-cells"
-             style="display: block;">
-        <thead><tr><th>size</th><th>price</th></tr></thead>
-        <tbody id="sell-orders-tbody"></tbody>
-      </table>
-      <table id="buy-orders-table"
-             class="scroll sticky-header cols-right pad-cells"
-             style="display: block;">
-        <thead><tr><th>price</th><th>size</th></tr></thead>
-        <tbody id="buy-orders-tbody"></tbody>
-      </table>
+      <div class="scroll">
+        <table id="sell-orders-table"
+               class="sticky-header cols-right pad-cells">
+          <thead><tr><th>size</th><th>price</th></tr></thead>
+          <tbody id="sell-orders-tbody"></tbody>
+        </table>
+      </div>
+      <div class="scroll">
+        <table id="buy-orders-table"
+               class="sticky-header cols-right pad-cells">
+          <thead><tr><th>price</th><th>size</th></tr></thead>
+          <tbody id="buy-orders-tbody"></tbody>
+        </table>
+      </div>
     </div>
 
     <!-- markets table widget -->
