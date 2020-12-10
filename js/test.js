@@ -28,29 +28,32 @@ function randomTicker(minlen = 2, maxlen = 8) {
   return letters.join("");
 }
 
-function addRandomElement(set, genfn) {
-  for (let i = 0; i < 10; i++) {
+function addUniqueElement(set, genfn) {
+  const retries = 10;
+  for (let i = 0; i < retries; i++) {
     const el = genfn();
     if (!set.has(el)) {
       if (i > 0) {
-        console.log("took %d attempts to generate unique element %s", i + 1, el);
+        console.log("took %d retries to get unique element %s", i + 1, el);
       }
       set.add(el);
       return el;
     }
   }
-  throw new Error("could no generate a new unique element in a given set");
+  throw new Error("could no get a unique element in %d retries", retries);
 }
 
 function genTickers(n, minlen, maxlen) {
   const tickers = new Set();
   for (let i = 0; i < n; i++) {
-    addRandomElement(tickers, () => randomTicker(minlen, maxlen));
+    addUniqueElement(tickers, () => randomTicker(minlen, maxlen));
   }
   return tickers;
 }
 
-function genPairs(npairs, nbases, nquotes) {
+function genPairs(npairs, nbases) {
+  // must be significantly greater than npairs to make fewer retries
+  const nquotes = npairs * 4;
   const bases = Array.from(genTickers(nbases, 2, 3));
   const quotes = Array.from(genTickers(nquotes, 2, 8));
   const baseToQuotes = new Map(bases.map(b => [b, new Set()]));
@@ -58,7 +61,7 @@ function genPairs(npairs, nbases, nquotes) {
     // take random base
     const base = randomIndexElement(bases);
     // and add a random element into its corresponding set
-    addRandomElement(baseToQuotes.get(base), () => randomIndexElement(quotes));
+    addUniqueElement(baseToQuotes.get(base), () => randomIndexElement(quotes));
   }
   const pairs = [];
   for (const [base, basesquotes] of baseToQuotes) {
@@ -70,7 +73,7 @@ function genPairs(npairs, nbases, nquotes) {
 }
 
 function genMarkets(nmarkets) {
-  const pairs = genPairs(nmarkets, 8, 300);
+  const pairs = genPairs(nmarkets, 8);
   const markets = new Map();
   for (let i = 0; i < pairs.length; i++) {
     const pair = pairs[i];
@@ -94,14 +97,16 @@ function randomChangeFloat(float, ratio) {
   return float + change;
 }
 
-function genMarketsDiff(markets, nchanges) {
+function genMarketsDiff(markets) {
+  // must be much lower than markets to have fewer retries
+  const nchanges = Math.floor(markets.size / 4);
   const changes = new Map(), additions = new Map(), removals = new Map();
 
   const mids = Array.from(markets.keys());
 
   const midsToChange = new Set();
   for (let i = 0; i < nchanges; i++) {
-    addRandomElement(midsToChange, () => randomIndexElement(mids));
+    addUniqueElement(midsToChange, () => randomIndexElement(mids));
   }
 
   for (const mid of midsToChange) {
