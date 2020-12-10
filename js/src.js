@@ -7,6 +7,7 @@ const marketsTable = document.getElementById("markets-table");
 const marketsTbody = document.getElementById("markets-tbody");
 let marketIdToPriceCell; // Map
 
+const updateMarketsBtn = document.getElementById("update-markets-btn");
 const updateBooksBtn = document.getElementById("update-books-btn");
 const sellOrdersTbody = document.getElementById("sell-orders-tbody");
 const buyOrdersTbody = document.getElementById("buy-orders-tbody");
@@ -521,9 +522,8 @@ function updateBooksClick(e) {
 }
 
 function initUi() {
-  const updateBtn = document.getElementById("update-markets-btn");
-  updateBtn.disabled = false;
-  updateBtn.onclick = (e => asyncFetchMarkets());
+  updateMarketsBtn.disabled = false;
+  updateMarketsBtn.onclick = (e => asyncFetchMarkets());
 
   updateBooksBtn.onclick = updateBooksClick;
 

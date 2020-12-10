@@ -120,3 +120,16 @@ function genMarketsDiff(markets) {
 
   return { changes, additions, removals };
 }
+
+function goTestMode() {
+  updateMarketsBtn.onclick = (e => {
+    if (markets) {
+      const diff = genMarketsDiff(markets);
+      updateMarketsTable(diff);
+    } else {
+      markets = genMarkets(200);
+      createMarketsTable(markets);
+    }
+  });
+  console.log('"%s" button patched with test code', updateMarketsBtn.value);
+}
