@@ -33,8 +33,8 @@ function addUniqueElement(set, genfn) {
   for (let i = 0; i < retries; i++) {
     const el = genfn();
     if (!set.has(el)) {
-      if (i > 0) {
-        console.log("took %d retries to get unique element %s", i + 1, el);
+      if (i > 1) {
+        console.log("took %d tries to get unique element %s", i + 1, el);
       }
       set.add(el);
       return el;
