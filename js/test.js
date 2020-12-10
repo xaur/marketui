@@ -86,3 +86,32 @@ function genMarkets(nmarkets) {
   }
   return markets;
 }
+
+function randomChangeFloat(float, ratio) {
+  const changeRandomizer = Math.random() * 2 - 1; // [-1, 1)
+  const maxChange = float * ratio;
+  const change = maxChange * changeRandomizer;
+  return float + change;
+}
+
+function genMarketsDiff(markets, nchanges) {
+  const changes = new Map(), additions = new Map(), removals = new Map();
+
+  const mids = Array.from(markets.keys());
+
+  const midsToChange = new Set();
+  for (let i = 0; i < nchanges; i++) {
+    addRandomElement(midsToChange, () => randomIndexElement(mids));
+  }
+
+  for (const mid of midsToChange) {
+    const mkt = markets.get(mid);
+    const o = mkt.last;
+    const n = randomChangeFloat(parseFloat(mkt.last), 0.02).toFixed(8);
+    changes.set(mid, {
+      last: [o, n],
+    });
+  }
+
+  return { changes, additions, removals };
+}
