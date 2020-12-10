@@ -84,7 +84,7 @@ function genMarkets(nmarkets) {
       quote: quote,
       label: quote + "/" + base,
       isActive: true,
-      last: randomFloat(30000).toFixed(8),
+      last: randomFloat(20000).toFixed(8),
     });
   }
   return markets;
@@ -121,8 +121,40 @@ function genMarketsDiff(markets) {
   return { changes, additions, removals };
 }
 
+function genOrderBook(spot, maxDepth, side) {
+  let lowest, highest, direction;
+  if (side === "bids") {
+    highest = spot;
+    lowest = highest / 50;
+    direction = -1;
+  } else if (side === "asks") {
+    lowest = spot;
+    highest = lowest * 4;
+    direction = 1;
+  } else { throw new Error("wrong side"); }
+  const depth = randomInt(0, maxDepth);
+  const priceStep = direction * (highest - lowest) / depth;
+  const sizeFactor = randomInt(1, 20000);
+  const book = [];
+  for (let i = 0, price = spot; i < depth; i++) {
+    price += priceStep;
+    const size = Math.random() * sizeFactor;
+    // need string for price and float for size
+    book.push([price.toFixed(8), parseFloat(size.toFixed(8))]);
+  }
+  return book;
+}
+
+function genOrderBooks(spot, maxDepth) {
+  return {
+    asks: genOrderBook(spot, maxDepth, "asks"),
+    bids: genOrderBook(spot, maxDepth, "bids"),
+  }
+}
+
 function goTestMode() {
-  updateMarketsBtn.onclick = (e => {
+  // globals used: updateMarketsBtn, markets, createMarketsTable, updateMarketsTable
+  updateMarketsBtn.onclick = (e) => {
     if (markets) {
       const diff = genMarketsDiff(markets);
       updateMarketsTable(diff);
@@ -130,6 +162,16 @@ function goTestMode() {
       markets = genMarkets(200);
       createMarketsTable(markets);
     }
-  });
-  console.log('"%s" button patched with test code', updateMarketsBtn.value);
+  };
+  console.log("'%s' button redirected to simulation code", updateMarketsBtn.value);
+
+  // globals used: fetchBooks, markets, bookDepth, createTable, sellOrdersTbody, buyOrdersTbody
+  fetchBooks = (marketId) => {
+    const market = markets.get(marketId);
+    const last = parseFloat(market.last);
+    const books = genOrderBooks(last, bookDepth);
+    createTable(sellOrdersTbody, books.asks, [1, 0]);
+    createTable(buyOrdersTbody, books.bids);
+  };
+  console.log("'%s' function redirected to simulation code", "fetchBooks");
 }
