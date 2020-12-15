@@ -2,6 +2,10 @@ html {
   font-family: sans-serif;
 }
 
+.border {
+  border: 1px solid #b3d5d6;
+}
+
 table {
   border-collapse: collapse;
 }
