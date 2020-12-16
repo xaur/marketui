@@ -16,25 +16,30 @@ const asksTable = document.getElementById("asks-table");
 const bidsTable = document.getElementById("bids-table");
 
 // https://docs.poloniex.com/
-const tickerUrl = "https://poloniex.com/public?command=returnTicker";
-const orderBookUrl = "https://poloniex.com/public?command=returnOrderBook&currencyPair={pair}&depth={depth}";
+const tickerEndpoint = {
+  url: "https://poloniex.com/public?command=returnTicker",
+  fetching: false,
+  aborter: null,
+};
+
+const booksEndpoint = {
+  url: "https://poloniex.com/public?command=returnOrderBook&currencyPair={pair}&depth={depth}",
+  fetching: false,
+  aborter: null,
+  maxDepth: 100,
+};
 
 // state
 let markets; // Map
-let marketsFetching = false;
 let marketsAutoupdateEnabled = false;
 let marketsAutoupdateInterval = 10000;
 let marketsAutoupdateTimer;
-let marketsFetchAborter;
 const ws = {
   url: "wss://api2.poloniex.com",
   sock: undefined,
   queue: [],
 };
 
-const bookDepth = 100;
-let booksFetching = false;
-let booksFetchAborter;
 let booksAutoupdateEnabled = false;
 let booksAutoupdateInterval = 3000;
 let booksAutoupdateTimer;
@@ -249,10 +254,23 @@ function diffAndUpdate(differ, data) {
   }
 }
 
-function asyncFetchPolo(url) {
-  const aborter = new AbortController();
+function cancelFetch(endpoint) {
+  if (endpoint.aborter) {
+    endpoint.aborter.abort();
+  }
+}
+
+function asyncFetchPolo(endpoint, params) {
+  if (endpoint.fetching) {
+    const reason = "ignoring fetch request until existing one finishes";
+    console.log(reason);
+    return Promise.reject(reason);
+  }
+  endpoint.fetching = true;
+  endpoint.aborter = new AbortController();
+  const url = format(endpoint.url, params);
   const start = performance.now();
-  const promise = fetch(url, { signal: aborter.signal })
+  const promise = fetch(url, { signal: endpoint.aborter.signal })
     .then((response) => {
       if (response.ok) {
         console.log("http response begins after %d ms, status %s",
@@ -272,25 +290,21 @@ function asyncFetchPolo(url) {
     })
     .catch((e) => {
       if (e.name === "AbortError") {
-        console.log("fetch aborted:", url);
+        console.log("fetch aborted:", endpoint.url);
       } else {
         console.error("error fetching:", e);
       }
       throw e; // prevent success handlers down the promise chain
+    })
+    .finally(() => {
+      endpoint.fetching = false;
     });
   console.log("http fetch initiated");
-  return { promise, aborter };
+  return promise;
 }
 
 function asyncFetchMarkets() {
-  if (marketsFetching) {
-    const reason = "ignoring markets fetch request until existing one finishes";
-    console.log(reason);
-    return Promise.reject(reason);
-  }
-  marketsFetching = true;
-  const {promise, aborter} = asyncFetchPolo(tickerUrl);
-  marketsFetchAborter = aborter;
+  const promise = asyncFetchPolo(tickerEndpoint);
   const updated = promise.then((json) => {
     if (markets) {
       diffAndUpdate(marketsDiffHttp, json);
@@ -301,9 +315,6 @@ function asyncFetchMarkets() {
     // return a true-ish value to signal downstream consumers that no error
     // took place
     return markets;
-  })
-  .finally(() => {
-    marketsFetching = false;
   });
   return updated;
 }
@@ -330,7 +341,7 @@ function setMarketsAutoupdate(enabled) {
   } else {
     console.log("stopping markets autoupdate");   
     clearTimeout(marketsAutoupdateTimer); // cancel pending timers
-    if (marketsFetchAborter) { marketsFetchAborter.abort(); } // cancel active fetches
+    cancelFetch(tickerEndpoint); // cancel active fetches
     watchMarketsBtn.value = "watch http";
   }
 }
@@ -361,7 +372,7 @@ function onDisconnected(evt) {
 
 function disconnect() {
   ws.sock.close();
-  marketsFetchAborter.abort();
+  cancelFetch(tickerEndpoint);
 }
 
 function onConnected(evt) {
@@ -513,19 +524,11 @@ function setTickers(table, quote) {
   });
 }
 
-function asyncFetchOrderBooks(marketId, depth = bookDepth) {
-  if (booksFetching) {
-    const reason = "ignoring book fetch request until existing one finishes";
-    console.log(reason);
-    return Promise.reject(reason);
-  }
+function asyncFetchOrderBooks(marketId, depth = booksEndpoint.maxDepth) {
   const m = markets.get(marketId);
   const pair = m.base + "_" + m.quote;
-  const url = format(orderBookUrl, { pair: pair, depth: depth });
-  booksFetching = true;
+  const promise = asyncFetchPolo(booksEndpoint, { pair: pair, depth: depth });
   console.log("fetching books for %s (%d), depth %d", pair, marketId, depth);
-  const {promise, aborter} = asyncFetchPolo(url);
-  booksFetchAborter = aborter;
   const processed = promise.then(json => {
     createTable(asksTbody, json.asks, [1, 0]);
     createTable(bidsTbody, json.bids);
@@ -533,7 +536,6 @@ function asyncFetchOrderBooks(marketId, depth = bookDepth) {
     setTickers(bidsTable, m.quote);
   })
   .finally(() => {
-    booksFetching = false;
     updateBooksBtn.disabled = false;
   });
   return processed;
@@ -583,7 +585,7 @@ function setBooksAutoupdate(enabled) {
   } else {
     console.log("stopping books autoupdate");
     clearTimeout(booksAutoupdateTimer); // cancel pending timers
-    if (booksFetchAborter) { booksFetchAborter.abort(); } // cancel active fetches
+    cancelFetch(booksEndpoint); // cancel active fetches
   }
 }
 
