@@ -27,7 +27,9 @@ const ws = {
   sock: undefined,
   queue: [],
 };
+
 const bookDepth = 100;
+let booksFetching = false;
 
 // stats
 let statsHeartbeats = 0;
@@ -485,12 +487,19 @@ function createTable(tbody, rows, order = [0, 1]) {
 }
 
 function asyncFetchOrderBooks(pair, depth) {
+  if (booksFetching) {
+    const reason = "ignoring book fetch request until existing one finishes";
+    console.log(reason);
+    return Promise.resolve(reason);
+  }
   const url = format(orderBookUrl, { pair: pair, depth: depth });
+  booksFetching = true;
   const {promise, aborter} = asyncFetchPolo(url);
   const processed = promise.then(json => {
     createTable(sellOrdersTbody, json.asks, [1, 0]);
     createTable(buyOrdersTbody, json.bids);
     updateBooksBtn.disabled = false;
+    booksFetching = false;
   });
   // todo: set aborter
   return processed;
