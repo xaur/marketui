@@ -11,6 +11,8 @@ const updateMarketsBtn = document.getElementById("update-markets-btn");
 const updateBooksBtn = document.getElementById("update-books-btn");
 const sellOrdersTbody = document.getElementById("sell-orders-tbody");
 const buyOrdersTbody = document.getElementById("buy-orders-tbody");
+const sellOrdersTable = document.getElementById("sell-orders-table");
+const buyOrdersTable = document.getElementById("buy-orders-table");
 
 // https://docs.poloniex.com/
 const tickerUrl = "https://poloniex.com/public?command=returnTicker";
@@ -502,6 +504,12 @@ function createTable(tbody, rows, order = [0, 1]) {
   }
 }
 
+function setTickers(table, quote) {
+  table.querySelectorAll("th.quote-ticker").forEach(el => {
+    el.firstChild.nodeValue = quote;
+  });
+}
+
 function asyncFetchOrderBooks(marketId, depth = bookDepth) {
   if (booksFetching) {
     const reason = "ignoring book fetch request until existing one finishes";
@@ -518,6 +526,8 @@ function asyncFetchOrderBooks(marketId, depth = bookDepth) {
   const processed = promise.then(json => {
     createTable(sellOrdersTbody, json.asks, [1, 0]);
     createTable(buyOrdersTbody, json.bids);
+    setTickers(sellOrdersTable, m.quote);
+    setTickers(buyOrdersTable, m.quote);
   })
   .finally(() => {
     booksFetching = false;
