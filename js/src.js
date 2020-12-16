@@ -18,6 +18,7 @@ const orderBookUrl = "https://poloniex.com/public?command=returnOrderBook&curren
 
 // state
 let markets; // Map
+let marketsFetching = false;
 let marketsUpdateEnabled = false;
 let marketsUpdateInterval = 3000;
 let marketsTimeout;
@@ -275,8 +276,15 @@ function asyncFetchPolo(url) {
 }
 
 function asyncFetchMarkets() {
+  if (marketsFetching) {
+    const reason = "ignoring markets fetch request until existing one finishes";
+    console.log(reason);
+    return Promise.resolve(reason);
+  }
+  marketsFetching = true;
   const {promise, aborter} = asyncFetchPolo(tickerUrl);
   const updated = promise.then((json) => {
+    marketsFetching = false;
     if (markets) {
       diffAndUpdate(marketsDiffHttp, json);
     } else {
@@ -499,10 +507,10 @@ function asyncFetchOrderBooks(marketId, depth = bookDepth) {
   console.log("fetching book for %s (%d), depth %d", pair, marketId, depth);
   const {promise, aborter} = asyncFetchPolo(url);
   const processed = promise.then(json => {
+    booksFetching = false;
     createTable(sellOrdersTbody, json.asks, [1, 0]);
     createTable(buyOrdersTbody, json.bids);
     updateBooksBtn.disabled = false;
-    booksFetching = false;
   });
   // todo: set aborter
   return processed;
