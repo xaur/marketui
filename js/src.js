@@ -490,6 +490,7 @@ function asyncFetchOrderBooks(pair, depth) {
   const processed = promise.then(json => {
     createTable(sellOrdersTbody, json.asks, [1, 0]);
     createTable(buyOrdersTbody, json.bids);
+    updateBooksBtn.disabled = false;
   });
   // todo: set aborter
   return processed;
@@ -506,7 +507,6 @@ function marketsTableClick(e) {
   const tr = event.target.closest("tr");
   const mids = tr.dataset.id;
   marketsTable.dataset.selectedMarketId = mids; // String = String
-  updateBooksBtn.disabled = false;
   marketsTbody.querySelectorAll(".row-selected").forEach(el =>
     el.classList.remove("row-selected"));
   tr.classList.add("row-selected");
