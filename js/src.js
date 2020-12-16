@@ -304,8 +304,7 @@ function asyncFetchPolo(endpoint, params) {
 }
 
 function asyncFetchMarkets() {
-  const promise = asyncFetchPolo(tickerEndpoint);
-  const updated = promise.then((json) => {
+  return asyncFetchPolo(tickerEndpoint).then((json) => {
     if (markets) {
       diffAndUpdate(marketsDiffHttp, json);
     } else {
@@ -316,7 +315,6 @@ function asyncFetchMarkets() {
     // took place
     return markets;
   });
-  return updated;
 }
 
 function asyncFetchMarketsNoerr() {
@@ -527,16 +525,14 @@ function setTickers(table, quote) {
 function asyncFetchOrderBooks(marketId, depth = booksEndpoint.maxDepth) {
   const m = markets.get(marketId);
   const pair = m.base + "_" + m.quote;
-  const promise = asyncFetchPolo(booksEndpoint, { pair: pair, depth: depth });
   console.log("fetching books for %s (%d), depth %d", pair, marketId, depth);
-  const processed = promise.then(json => {
+  return asyncFetchPolo(booksEndpoint, { pair: pair, depth: depth }).then(json => {
     createTable(asksTbody, json.asks, [1, 0]);
     createTable(bidsTbody, json.bids);
     setTickers(asksTable, m.quote);
     setTickers(bidsTable, m.quote);
     updateBooksBtn.disabled = false;
   });
-  return processed;
 }
 
 function asyncFetchBooksNoerr(marketId) {
