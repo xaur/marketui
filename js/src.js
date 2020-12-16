@@ -322,7 +322,7 @@ function marketsAutoupdateLoop() {
 }
 
 function setMarketsAutoupdate(enabled) {
-  marketsAutoupdateEnabled = enabled;     // false prevents marketsAutoupdateLoop from setting new timers
+  marketsAutoupdateEnabled = enabled; // false prevents marketsAutoupdateLoop from setting new timers
   if (marketsAutoupdateEnabled) {
     console.log("starting markets autoupdate");
     marketsAutoupdateLoop();
@@ -330,7 +330,7 @@ function setMarketsAutoupdate(enabled) {
   } else {
     console.log("stopping markets autoupdate");   
     clearTimeout(marketsAutoupdateTimer); // cancel pending timers
-    marketsFetchAborter.abort();          // cancel active fetches
+    if (marketsFetchAborter) { marketsFetchAborter.abort(); } // cancel active fetches
     watchMarketsBtn.value = "watch http";
   }
 }
@@ -576,14 +576,14 @@ function booksAutoupdateLoop() {
 }
 
 function setBooksAutoupdate(enabled) {
-  booksAutoupdateEnabled = enabled;     // false prevents booksAutoupdateLoop from setting new timers
+  booksAutoupdateEnabled = enabled; // false prevents booksAutoupdateLoop from setting new timers
   if (enabled) {
     console.log("starting books autoupdate");
     booksAutoupdateLoop();
   } else {
     console.log("stopping books autoupdate");
     clearTimeout(booksAutoupdateTimer); // cancel pending timers
-    booksFetchAborter.abort();          // cancel active fetches
+    if (booksFetchAborter) { booksFetchAborter.abort(); } // cancel active fetches
   }
 }
 
