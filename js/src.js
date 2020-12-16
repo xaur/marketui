@@ -270,7 +270,7 @@ function asyncFetchPolo(url) {
       } else {
         console.error("error fetching:", e);
       }
-      throw e;
+      throw e; // prevent success handlers down the promise chain
     });
   console.log("http fetch initiated");
   return { promise, aborter };
@@ -295,7 +295,8 @@ function asyncFetchMarkets() {
     // return a true-ish value to signal downstream consumers that no error
     // took place
     return markets;
-  }).catch(e => null)
+  })
+  .catch(() => {}) // silence errors
   .finally(() => {
     marketsFetching = false;
   });
@@ -513,7 +514,9 @@ function asyncFetchOrderBooks(marketId, depth = bookDepth) {
   const processed = promise.then(json => {
     createTable(sellOrdersTbody, json.asks, [1, 0]);
     createTable(buyOrdersTbody, json.bids);
-  }).finally(() => {
+  })
+  .catch(() => {}) // silence errors
+  .finally(() => {
     booksFetching = false;
     updateBooksBtn.disabled = false;
   });
