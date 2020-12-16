@@ -31,6 +31,7 @@ const ws = {
 
 const bookDepth = 100;
 let booksFetching = false;
+let booksFetchAborter;
 
 // stats
 let statsHeartbeats = 0;
@@ -283,6 +284,7 @@ function asyncFetchMarkets() {
   }
   marketsFetching = true;
   const {promise, aborter} = asyncFetchPolo(tickerUrl);
+  marketsFetchAborter = aborter;
   const updated = promise.then((json) => {
     marketsFetching = false;
     if (markets) {
@@ -295,7 +297,6 @@ function asyncFetchMarkets() {
     // took place
     return markets;
   }).catch(e => null);
-  marketsFetchAborter = aborter;
   return updated;
 }
 
@@ -506,13 +507,13 @@ function asyncFetchOrderBooks(marketId, depth = bookDepth) {
   booksFetching = true;
   console.log("fetching book for %s (%d), depth %d", pair, marketId, depth);
   const {promise, aborter} = asyncFetchPolo(url);
+  booksFetchAborter = aborter;
   const processed = promise.then(json => {
     booksFetching = false;
     createTable(sellOrdersTbody, json.asks, [1, 0]);
     createTable(buyOrdersTbody, json.bids);
     updateBooksBtn.disabled = false;
   });
-  // todo: set aborter
   return processed;
 }
 
