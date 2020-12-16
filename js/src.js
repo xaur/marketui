@@ -307,7 +307,7 @@ function asyncFetchMarketsNoerr() {
 }
 
 function fetchMarketsLoop() {
-  asyncFetchMarkets().then((markets) => {
+  asyncFetchMarketsNoerr().then(() => {
     if (marketsUpdateEnabled) {
       console.log("scheduling markets update in %d ms", marketsUpdateInterval);
       marketsTimeout = setTimeout(fetchMarketsLoop, marketsUpdateInterval);
