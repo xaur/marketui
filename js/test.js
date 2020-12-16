@@ -165,13 +165,13 @@ function goTestMode() {
   };
   console.log("'%s' button redirected to simulation code", updateMarketsBtn.value);
 
-  // globals used: fetchBooks, markets, bookDepth, createTable, sellOrdersTbody, buyOrdersTbody
+  // globals used: fetchBooks, markets, bookDepth, createTable, asksTbody, bidsTbody
   fetchBooks = (marketId) => {
     const market = markets.get(marketId);
     const last = parseFloat(market.last);
     const books = genOrderBooks(last, bookDepth);
-    createTable(sellOrdersTbody, books.asks, [1, 0]);
-    createTable(buyOrdersTbody, books.bids);
+    createTable(asksTbody, books.asks, [1, 0]);
+    createTable(bidsTbody, books.bids);
   };
   console.log("'%s' function redirected to simulation code", "fetchBooks");
 }

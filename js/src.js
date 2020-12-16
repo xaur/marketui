@@ -9,10 +9,10 @@ let marketIdToPriceCell; // Map
 
 const updateMarketsBtn = document.getElementById("update-markets-btn");
 const updateBooksBtn = document.getElementById("update-books-btn");
-const sellOrdersTbody = document.getElementById("sell-orders-tbody");
-const buyOrdersTbody = document.getElementById("buy-orders-tbody");
-const sellOrdersTable = document.getElementById("sell-orders-table");
-const buyOrdersTable = document.getElementById("buy-orders-table");
+const asksTbody = document.getElementById("asks-tbody");
+const bidsTbody = document.getElementById("bids-tbody");
+const asksTable = document.getElementById("asks-table");
+const bidsTable = document.getElementById("bids-table");
 
 // https://docs.poloniex.com/
 const tickerUrl = "https://poloniex.com/public?command=returnTicker";
@@ -524,10 +524,10 @@ function asyncFetchOrderBooks(marketId, depth = bookDepth) {
   const {promise, aborter} = asyncFetchPolo(url);
   booksFetchAborter = aborter;
   const processed = promise.then(json => {
-    createTable(sellOrdersTbody, json.asks, [1, 0]);
-    createTable(buyOrdersTbody, json.bids);
-    setTickers(sellOrdersTable, m.quote);
-    setTickers(buyOrdersTable, m.quote);
+    createTable(asksTbody, json.asks, [1, 0]);
+    createTable(bidsTbody, json.bids);
+    setTickers(asksTable, m.quote);
+    setTickers(bidsTable, m.quote);
   })
   .finally(() => {
     booksFetching = false;
