@@ -286,7 +286,6 @@ function asyncFetchMarkets() {
   const {promise, aborter} = asyncFetchPolo(tickerUrl);
   marketsFetchAborter = aborter;
   const updated = promise.then((json) => {
-    marketsFetching = false;
     if (markets) {
       diffAndUpdate(marketsDiffHttp, json);
     } else {
@@ -296,7 +295,10 @@ function asyncFetchMarkets() {
     // return a true-ish value to signal downstream consumers that no error
     // took place
     return markets;
-  }).catch(e => null);
+  }).catch(e => null)
+  .finally(() => {
+    marketsFetching = false;
+  });
   return updated;
 }
 
@@ -509,9 +511,10 @@ function asyncFetchOrderBooks(marketId, depth = bookDepth) {
   const {promise, aborter} = asyncFetchPolo(url);
   booksFetchAborter = aborter;
   const processed = promise.then(json => {
-    booksFetching = false;
     createTable(sellOrdersTbody, json.asks, [1, 0]);
     createTable(buyOrdersTbody, json.bids);
+  }).finally(() => {
+    booksFetching = false;
     updateBooksBtn.disabled = false;
   });
   return processed;
