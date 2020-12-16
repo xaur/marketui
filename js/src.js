@@ -1,6 +1,7 @@
 "use strict";
 
 // UI access
+const autoupdateToggle = document.getElementById("autoupdate-toggle");
 const connectWsBtn = document.getElementById("connect-ws-btn");
 const watchMarketsBtn = document.getElementById("watch-markets-btn");
 const marketsTable = document.getElementById("markets-table");
@@ -320,18 +321,17 @@ function marketsAutoupdateLoop() {
   });
 }
 
-function toggleMarketsAutoupdate() {
+function setMarketsAutoupdate(enabled) {
+  marketsAutoupdateEnabled = enabled;     // false prevents marketsAutoupdateLoop from setting new timers
   if (marketsAutoupdateEnabled) {
-    console.log("stopping markets autoupdate");
-    marketsAutoupdateEnabled = false;     // prevent marketsAutoupdateLoop from setting new timers
+    console.log("starting markets autoupdate");
+    marketsAutoupdateLoop();
+    watchMarketsBtn.value = "unwatch http";
+  } else {
+    console.log("stopping markets autoupdate");   
     clearTimeout(marketsAutoupdateTimer); // cancel pending timers
     marketsFetchAborter.abort();          // cancel active fetches
     watchMarketsBtn.value = "watch http";
-  } else {
-    console.log("starting markets autoupdate");
-    marketsAutoupdateEnabled = true;
-    marketsAutoupdateLoop();
-    watchMarketsBtn.value = "unwatch http";
   }
 }
 
@@ -575,17 +575,22 @@ function booksAutoupdateLoop() {
   });
 }
 
-function toggleBooksAutoupdate() {
-  if (booksAutoupdateEnabled) {
+function setBooksAutoupdate(enabled) {
+  booksAutoupdateEnabled = enabled;     // false prevents booksAutoupdateLoop from setting new timers
+  if (enabled) {
+    console.log("starting books autoupdate");
+    booksAutoupdateLoop();
+  } else {
     console.log("stopping books autoupdate");
-    booksAutoupdateEnabled = false;     // prevent booksAutoupdateLoop from setting new timers
     clearTimeout(booksAutoupdateTimer); // cancel pending timers
     booksFetchAborter.abort();          // cancel active fetches
-  } else {
-    console.log("starting books autoupdate");
-    booksAutoupdateEnabled = true;
-    booksAutoupdateLoop();
   }
+}
+
+function autoupdateToggleClick(e) {
+  const enable = e.target.checked;
+  setMarketsAutoupdate(enable);
+  setBooksAutoupdate(enable);
 }
 
 function initUi() {
@@ -595,10 +600,12 @@ function initUi() {
   updateBooksBtn.onclick = (e => asyncUpdateSelectedBooks());
 
   watchMarketsBtn.disabled = false;
-  watchMarketsBtn.onclick = toggleMarketsAutoupdate;
+  watchMarketsBtn.onclick = (e => setMarketsAutoupdate(!marketsAutoupdateEnabled));
   connectWsBtn.disabled = false;
   connectWsBtn.onclick = connect;
   marketsTbody.onclick = marketsTableClick;
+
+  autoupdateToggle.onclick = autoupdateToggleClick;
 }
 
 initUi();

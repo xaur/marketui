@@ -33,6 +33,7 @@
       /* should fit 999999999.99999999 (18ch), ~180px at 16px font-size */
       width: 18ch;
     }
+    .flexcenter { display: flex; align-items: center; }
     /* disable until polished */
     #connect-ws-btn, #watch-markets-btn { display: none; }
   </style>
@@ -49,6 +50,9 @@
     <input id="watch-markets-btn" type="button" value="watch mkts" disabled>
     <input id="update-markets-btn" type="button" value="up markets" disabled>
     <input id="update-books-btn" type="button" value="up books" disabled>
+    <div class="flexcenter">
+      <label for="autoupdate-toggle">auto-update</label><input type="checkbox" id="autoupdate-toggle">
+    </div>
   </div>
 
   <div class="growing flexbox gap-children"
