@@ -17,7 +17,7 @@ const bidsTable = document.getElementById("bids-table");
 
 // https://docs.poloniex.com/
 const tickerUrl = "https://poloniex.com/public?command=returnTicker";
-const orderBookUrl = "https://poloniex.com/public?command=returnOrderBook&currencyPair={pair}&depth={depth}"
+const orderBookUrl = "https://poloniex.com/public?command=returnOrderBook&currencyPair={pair}&depth={depth}";
 
 // state
 let markets; // Map
@@ -76,7 +76,7 @@ function createMarkets(tickerResp) {
     }
   }
 
-  console.log("markets Map in %.1f ms", performance.now() - start);
+  console.log("markets Map created in %.1f ms", performance.now() - start);
   return markets;
 }
 
@@ -523,7 +523,7 @@ function asyncFetchOrderBooks(marketId, depth = bookDepth) {
   const pair = m.base + "_" + m.quote;
   const url = format(orderBookUrl, { pair: pair, depth: depth });
   booksFetching = true;
-  console.log("fetching book for %s (%d), depth %d", pair, marketId, depth);
+  console.log("fetching books for %s (%d), depth %d", pair, marketId, depth);
   const {promise, aborter} = asyncFetchPolo(url);
   booksFetchAborter = aborter;
   const processed = promise.then(json => {
