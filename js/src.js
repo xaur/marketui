@@ -280,7 +280,7 @@ function asyncFetchMarkets() {
   if (marketsFetching) {
     const reason = "ignoring markets fetch request until existing one finishes";
     console.log(reason);
-    return Promise.resolve(reason);
+    return Promise.reject(reason);
   }
   marketsFetching = true;
   const {promise, aborter} = asyncFetchPolo(tickerUrl);
@@ -296,11 +296,14 @@ function asyncFetchMarkets() {
     // took place
     return markets;
   })
-  .catch(() => {}) // silence errors
   .finally(() => {
     marketsFetching = false;
   });
   return updated;
+}
+
+function asyncFetchMarketsNoerr() {
+  return asyncFetchMarkets().catch(() => {}); // silence errors
 }
 
 function fetchMarketsLoop() {
@@ -461,6 +464,7 @@ function connect() {
   } else {
     console.log("fetching markets data for the first time");
     asyncFetchMarkets().then((markets) => {
+      // todo: if markets promise gets rejected, subscription never happens
       if (markets) {
         // only subscribe to updates if markets db was populated
         subscribeMarkets();
@@ -502,7 +506,7 @@ function asyncFetchOrderBooks(marketId, depth = bookDepth) {
   if (booksFetching) {
     const reason = "ignoring book fetch request until existing one finishes";
     console.log(reason);
-    return Promise.resolve(reason);
+    return Promise.reject(reason);
   }
   const m = markets.get(marketId);
   const pair = m.base + "_" + m.quote;
@@ -515,12 +519,15 @@ function asyncFetchOrderBooks(marketId, depth = bookDepth) {
     createTable(sellOrdersTbody, json.asks, [1, 0]);
     createTable(buyOrdersTbody, json.bids);
   })
-  .catch(() => {}) // silence errors
   .finally(() => {
     booksFetching = false;
     updateBooksBtn.disabled = false;
   });
   return processed;
+}
+
+function asyncFetchBooksNoerr(marketId) {
+  return asyncFetchOrderBooks(marketId).catch(() => {});
 }
 
 function marketsTableClick(e) {
@@ -533,17 +540,17 @@ function marketsTableClick(e) {
 
   const mid = parseInt(mids);
   console.log("selected market", mid);
-  asyncFetchOrderBooks(mid);
+  asyncFetchBooksNoerr(mid);
 }
 
 function updateBooksClick(e) {
   const mid = parseInt(marketsTable.dataset.selectedMarketId);
-  asyncFetchOrderBooks(mid);
+  asyncFetchBooksNoerr(mid);
 }
 
 function initUi() {
   updateMarketsBtn.disabled = false;
-  updateMarketsBtn.onclick = (e => asyncFetchMarkets());
+  updateMarketsBtn.onclick = (e => asyncFetchMarketsNoerr());
 
   updateBooksBtn.onclick = updateBooksClick;
 
