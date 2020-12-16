@@ -23,7 +23,7 @@ const orderBookUrl = "https://poloniex.com/public?command=returnOrderBook&curren
 let markets; // Map
 let marketsFetching = false;
 let marketsAutoupdateEnabled = false;
-let marketsAutoupdateInterval = 3000;
+let marketsAutoupdateInterval = 10000;
 let marketsAutoupdateTimer;
 let marketsFetchAborter;
 const ws = {
