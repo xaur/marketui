@@ -534,8 +534,6 @@ function asyncFetchOrderBooks(marketId, depth = booksEndpoint.maxDepth) {
     createTable(bidsTbody, json.bids);
     setTickers(asksTable, m.quote);
     setTickers(bidsTable, m.quote);
-  })
-  .finally(() => {
     updateBooksBtn.disabled = false;
   });
   return processed;
