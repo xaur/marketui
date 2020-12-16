@@ -486,14 +486,17 @@ function createTable(tbody, rows, order = [0, 1]) {
   }
 }
 
-function asyncFetchOrderBooks(pair, depth) {
+function asyncFetchOrderBooks(marketId, depth = bookDepth) {
   if (booksFetching) {
     const reason = "ignoring book fetch request until existing one finishes";
     console.log(reason);
     return Promise.resolve(reason);
   }
+  const m = markets.get(marketId);
+  const pair = m.base + "_" + m.quote;
   const url = format(orderBookUrl, { pair: pair, depth: depth });
   booksFetching = true;
+  console.log("fetching book for %s (%d), depth %d", pair, marketId, depth);
   const {promise, aborter} = asyncFetchPolo(url);
   const processed = promise.then(json => {
     createTable(sellOrdersTbody, json.asks, [1, 0]);
@@ -503,13 +506,6 @@ function asyncFetchOrderBooks(pair, depth) {
   });
   // todo: set aborter
   return processed;
-}
-
-function fetchBooks(marketId) {
-  const m = markets.get(marketId);
-  const pair = m.base + "_" + m.quote;
-  console.log("fetching book for %s (%d)", pair, marketId);
-  asyncFetchOrderBooks(pair, bookDepth);
 }
 
 function marketsTableClick(e) {
@@ -522,12 +518,12 @@ function marketsTableClick(e) {
 
   const mid = parseInt(mids);
   console.log("selected market", mid);
-  fetchBooks(mid);
+  asyncFetchOrderBooks(mid);
 }
 
 function updateBooksClick(e) {
   const mid = parseInt(marketsTable.dataset.selectedMarketId);
-  fetchBooks(mid);
+  asyncFetchOrderBooks(mid);
 }
 
 function initUi() {
