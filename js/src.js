@@ -34,6 +34,9 @@ const ws = {
 const bookDepth = 100;
 let booksFetching = false;
 let booksFetchAborter;
+let booksUpdateEnabled = false;
+let booksUpdateInterval = 3000;
+let booksTimeout;
 
 // stats
 let statsHeartbeats = 0;
@@ -542,27 +545,54 @@ function asyncFetchBooksNoerr(marketId) {
 
 function marketsTableClick(e) {
   const tr = event.target.closest("tr");
-  const mids = tr.dataset.id;
-  marketsTable.dataset.selectedMarketId = mids; // String = String
+  const midstr = tr.dataset.id;
+  marketsTable.dataset.selectedMarketId = midstr; // String = String
   marketsTbody.querySelectorAll(".row-selected").forEach(el =>
     el.classList.remove("row-selected"));
   tr.classList.add("row-selected");
 
-  const mid = parseInt(mids);
+  const mid = parseInt(midstr);
   console.log("selected market", mid);
   asyncFetchBooksNoerr(mid);
 }
 
-function updateBooksClick(e) {
-  const mid = parseInt(marketsTable.dataset.selectedMarketId);
-  asyncFetchBooksNoerr(mid);
+function asyncUpdateSelectedBooks() {
+  const midstr = marketsTable.dataset.selectedMarketId;
+  if (!midstr) {
+    console.log("ignoring books update until a market is selected");
+    return Promise.resolve(null);
+  }
+  const mid = parseInt(midstr);
+  return asyncFetchBooksNoerr(mid);
+}
+
+function fetchBooksLoop() {
+  asyncUpdateSelectedBooks().finally(() => {
+    if (booksUpdateEnabled) {
+      console.log("scheduling books update in %d ms", booksUpdateInterval);
+      booksTimeout = setTimeout(fetchBooksLoop, booksUpdateInterval);
+    }
+  });
+}
+
+function toggleBooksUpdating() {
+  if (booksUpdateEnabled) {
+    console.log("stopping books updates");
+    booksUpdateEnabled = false;   // prevent fetchBooksLoop from setting new timeouts
+    clearTimeout(booksTimeout);   // cancel pending timeouts
+    booksFetchAborter.abort();    // cancel active fetches
+  } else {
+    console.log("starting books updates");
+    booksUpdateEnabled = true;
+    fetchBooksLoop();
+  }
 }
 
 function initUi() {
   updateMarketsBtn.disabled = false;
   updateMarketsBtn.onclick = (e => asyncFetchMarketsNoerr());
 
-  updateBooksBtn.onclick = updateBooksClick;
+  updateBooksBtn.onclick = (e => asyncUpdateSelectedBooks());
 
   watchMarketsBtn.disabled = false;
   watchMarketsBtn.onclick = toggleMarketsUpdating;
