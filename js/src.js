@@ -21,9 +21,9 @@ const orderBookUrl = "https://poloniex.com/public?command=returnOrderBook&curren
 // state
 let markets; // Map
 let marketsFetching = false;
-let marketsUpdateEnabled = false;
-let marketsUpdateInterval = 3000;
-let marketsTimeout;
+let marketsAutoupdateEnabled = false;
+let marketsAutoupdateInterval = 3000;
+let marketsAutoupdateTimer;
 let marketsFetchAborter;
 const ws = {
   url: "wss://api2.poloniex.com",
@@ -34,9 +34,9 @@ const ws = {
 const bookDepth = 100;
 let booksFetching = false;
 let booksFetchAborter;
-let booksUpdateEnabled = false;
-let booksUpdateInterval = 3000;
-let booksTimeout;
+let booksAutoupdateEnabled = false;
+let booksAutoupdateInterval = 3000;
+let booksAutoupdateTimer;
 
 // stats
 let statsHeartbeats = 0;
@@ -311,26 +311,26 @@ function asyncFetchMarketsNoerr() {
   return asyncFetchMarkets().catch(() => {}); // silence errors
 }
 
-function fetchMarketsLoop() {
+function marketsAutoupdateLoop() {
   asyncFetchMarketsNoerr().then(() => {
-    if (marketsUpdateEnabled) {
-      console.log("scheduling markets update in %d ms", marketsUpdateInterval);
-      marketsTimeout = setTimeout(fetchMarketsLoop, marketsUpdateInterval);
+    if (marketsAutoupdateEnabled) {
+      console.log("scheduling markets update in %d ms", marketsAutoupdateInterval);
+      marketsAutoupdateTimer = setTimeout(marketsAutoupdateLoop, marketsAutoupdateInterval);
     }
   });
 }
 
-function toggleMarketsUpdating() {
-  if (marketsUpdateEnabled) {
-    console.log("stopping markets updates");
-    marketsUpdateEnabled = false;   // prevent fetchMarketsLoop from setting new timeouts
-    clearTimeout(marketsTimeout);   // cancel pending timeouts
-    marketsFetchAborter.abort();    // cancel active fetches
+function toggleMarketsAutoupdate() {
+  if (marketsAutoupdateEnabled) {
+    console.log("stopping markets autoupdate");
+    marketsAutoupdateEnabled = false;     // prevent marketsAutoupdateLoop from setting new timers
+    clearTimeout(marketsAutoupdateTimer); // cancel pending timers
+    marketsFetchAborter.abort();          // cancel active fetches
     watchMarketsBtn.value = "watch http";
   } else {
-    console.log("starting markets updates");
-    marketsUpdateEnabled = true;
-    fetchMarketsLoop();
+    console.log("starting markets autoupdate");
+    marketsAutoupdateEnabled = true;
+    marketsAutoupdateLoop();
     watchMarketsBtn.value = "unwatch http";
   }
 }
@@ -559,32 +559,32 @@ function marketsTableClick(e) {
 function asyncUpdateSelectedBooks() {
   const midstr = marketsTable.dataset.selectedMarketId;
   if (!midstr) {
-    console.log("ignoring books update until a market is selected");
+    console.log("skipping books update until a market is selected");
     return Promise.resolve(null);
   }
   const mid = parseInt(midstr);
   return asyncFetchBooksNoerr(mid);
 }
 
-function fetchBooksLoop() {
+function booksAutoupdateLoop() {
   asyncUpdateSelectedBooks().finally(() => {
-    if (booksUpdateEnabled) {
-      console.log("scheduling books update in %d ms", booksUpdateInterval);
-      booksTimeout = setTimeout(fetchBooksLoop, booksUpdateInterval);
+    if (booksAutoupdateEnabled) {
+      console.log("scheduling books update in %d ms", booksAutoupdateInterval);
+      booksAutoupdateTimer = setTimeout(booksAutoupdateLoop, booksAutoupdateInterval);
     }
   });
 }
 
-function toggleBooksUpdating() {
-  if (booksUpdateEnabled) {
-    console.log("stopping books updates");
-    booksUpdateEnabled = false;   // prevent fetchBooksLoop from setting new timeouts
-    clearTimeout(booksTimeout);   // cancel pending timeouts
-    booksFetchAborter.abort();    // cancel active fetches
+function toggleBooksAutoupdate() {
+  if (booksAutoupdateEnabled) {
+    console.log("stopping books autoupdate");
+    booksAutoupdateEnabled = false;     // prevent booksAutoupdateLoop from setting new timers
+    clearTimeout(booksAutoupdateTimer); // cancel pending timers
+    booksFetchAborter.abort();          // cancel active fetches
   } else {
-    console.log("starting books updates");
-    booksUpdateEnabled = true;
-    fetchBooksLoop();
+    console.log("starting books autoupdate");
+    booksAutoupdateEnabled = true;
+    booksAutoupdateLoop();
   }
 }
 
@@ -595,7 +595,7 @@ function initUi() {
   updateBooksBtn.onclick = (e => asyncUpdateSelectedBooks());
 
   watchMarketsBtn.disabled = false;
-  watchMarketsBtn.onclick = toggleMarketsUpdating;
+  watchMarketsBtn.onclick = toggleMarketsAutoupdate;
   connectWsBtn.disabled = false;
   connectWsBtn.onclick = connect;
   marketsTbody.onclick = marketsTableClick;
