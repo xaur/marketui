@@ -31,9 +31,6 @@ const booksEndpoint = {
 
 // state
 let markets; // Map
-let marketsAutoupdateEnabled = false;
-let marketsAutoupdateInterval = 10000;
-let marketsAutoupdateTimer;
 const ws = {
   url: "wss://api2.poloniex.com",
   sock: undefined,
@@ -319,28 +316,17 @@ function asyncUpdateMarketsNoerr() {
   return asyncUpdateMarkets().catch(() => {}); // silence errors
 }
 
-function marketsAutoupdateLoop() {
-  asyncUpdateMarketsNoerr().finally(() => {
-    if (marketsAutoupdateEnabled) {
-      console.log("scheduling markets update in %d ms", marketsAutoupdateInterval);
-      marketsAutoupdateTimer = setTimeout(marketsAutoupdateLoop, marketsAutoupdateInterval);
-    }
-  });
-}
-
-function setMarketsAutoupdate(enabled) {
-  marketsAutoupdateEnabled = enabled; // false prevents marketsAutoupdateLoop from setting new timers
-  if (marketsAutoupdateEnabled) {
-    console.log("starting markets autoupdate");
-    marketsAutoupdateLoop();
-    watchMarketsBtn.value = "unwatch http";
-  } else {
-    console.log("stopping markets autoupdate");   
-    clearTimeout(marketsAutoupdateTimer); // cancel pending timers
-    cancelFetch(tickerEndpoint); // cancel active fetches
-    watchMarketsBtn.value = "watch http";
-  }
-}
+const marketsUpdater = {
+  desc: "markets",
+  enabled: false,
+  interval: 10000,
+  timer: null,
+  fetchPromiseFn: asyncUpdateMarketsNoerr,
+  cancel: () => cancelFetch(tickerEndpoint),
+  updateUi: (x) => { console.log("markets UI updater stub") },
+  onenable: () => watchMarketsBtn.value = "unwatch http",
+  ondisable: () => watchMarketsBtn.value = "watch http",
+};
 
 function wsSend(data) {
   if (!ws.sock || ws.sock.readyState !== WebSocket.OPEN) {
@@ -575,6 +561,8 @@ const booksUpdater = {
   fetchPromiseFn: asyncUpdateSelectedBooks,
   cancel: () => cancelFetch(booksEndpoint),
   updateUi: (x) => { console.log("UI updater stub") },
+  onenable: null,
+  ondisable: null,
 };
 
 function updaterLoop(updater) {
@@ -593,15 +581,17 @@ function setUpdaterEnabled(updater, enabled) {
   console.log("%s %s autoupdate", enabled ? "starting" : "stopping", updater.desc);
   if (enabled) {
     updaterLoop(updater);
+    if (updater.onenable) { updater.onenable(); }
   } else {
     clearTimeout(updater.timer);
     updater.cancel();
+    if (updater.ondisable) { updater.ondisable(); }
   }
 }
 
 function autoupdateToggleClick(e) {
   const enable = e.target.checked;
-  setMarketsAutoupdate(enable);
+  setUpdaterEnabled(marketsUpdater, enable);
   setUpdaterEnabled(booksUpdater, enable);
 }
 
@@ -612,7 +602,7 @@ function initUi() {
   updateBooksBtn.onclick = (e => asyncUpdateSelectedBooks());
 
   watchMarketsBtn.disabled = false;
-  watchMarketsBtn.onclick = (e => setMarketsAutoupdate(!marketsAutoupdateEnabled));
+  watchMarketsBtn.onclick = (e => setUpdaterEnabled(marketsUpdater, !marketsUpdater.enabled));
   connectWsBtn.disabled = false;
   connectWsBtn.onclick = connect;
   marketsTbody.onclick = marketsTableClick;
