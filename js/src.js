@@ -1,21 +1,28 @@
 "use strict";
 
-// UI access
-const autoupdateToggle = document.getElementById("autoupdate-toggle");
-const connectWsBtn = document.getElementById("connect-ws-btn");
-const watchMarketsBtn = document.getElementById("watch-markets-btn");
+// ## markets widgets
+
 const marketsTable = document.getElementById("markets-table");
 const marketsTbody = document.getElementById("markets-tbody");
 let marketIdToPriceCell; // Map
-
+const watchMarketsBtn = document.getElementById("watch-markets-btn");
 const updateMarketsBtn = document.getElementById("update-markets-btn");
-const updateBooksBtn = document.getElementById("update-books-btn");
-const asksTbody = document.getElementById("asks-tbody");
-const bidsTbody = document.getElementById("bids-tbody");
-const asksTable = document.getElementById("asks-table");
-const bidsTable = document.getElementById("bids-table");
 
-// https://docs.poloniex.com/
+// ## books widgets
+
+const asksTable = document.getElementById("asks-table");
+const asksTbody = document.getElementById("asks-tbody");
+const bidsTable = document.getElementById("bids-table");
+const bidsTbody = document.getElementById("bids-tbody");
+const updateBooksBtn = document.getElementById("update-books-btn");
+
+// ## other widgets
+
+const autoupdateToggle = document.getElementById("autoupdate-toggle");
+const connectWsBtn = document.getElementById("connect-ws-btn");
+
+// ## endpoints and their state https://docs.poloniex.com/
+
 const tickerEndpoint = {
   url: "https://poloniex.com/public?command=returnTicker",
   fetching: false,
@@ -29,21 +36,147 @@ const booksEndpoint = {
   maxDepth: 100,
 };
 
-// state
-let markets; // Map
 const ws = {
   url: "wss://api2.poloniex.com",
   sock: undefined,
   queue: [],
 };
 
+// ## business data state
+
+let markets; // Map
 let booksMarketId;
 
-// stats
+// ## stats
+
 let statsHeartbeats = 0;
 let statsTickerPriceChanges = 0;
 let statsTickerPriceUnchanged = 0;
 let statsMarketsTableLastUpdated = performance.now();
+
+// ## js utils
+
+function format(template, params) { // sigh ES6
+  let res = template;
+  for (const key in params) {
+    res = res.replace("{" + key + "}", params[key]);
+  }
+  return res;
+}
+
+// ## endpoint methods
+
+class RequestIgnored extends Error {}
+
+function cancelFetch(endpoint) {
+  if (endpoint.aborter) {
+    endpoint.aborter.abort();
+  }
+}
+
+function asyncFetchPolo(endpoint, params) {
+  if (endpoint.fetching) {
+    const reason = "ignoring fetch request until existing one finishes";
+    console.log(reason);
+    return Promise.reject(new RequestIgnored(reason));
+  }
+  endpoint.fetching = true;
+  endpoint.aborter = new AbortController();
+  const url = format(endpoint.url, params);
+  const start = performance.now();
+  const promise = fetch(url, { signal: endpoint.aborter.signal })
+    .then((response) => {
+      if (response.ok) {
+        console.log("http response begins after %d ms, status %s",
+          (performance.now() - start), response.status);
+        return response.json();
+      } else {
+        console.log("http response not ok");
+        throw new Error("Failed to fetch, status " + response.status);
+      }
+    })
+    .then((json) => {
+      console.log("http response finishes after %d ms", performance.now() - start);
+      if (json.error) {
+        throw new Error("Poloniex API error: " + json.error);
+      }
+      return json;
+    })
+    .finally(() => {
+      endpoint.fetching = false;
+    });
+  console.log("http fetch initiated");
+  return promise;
+}
+
+function handleErrors(e) {
+  if (e instanceof RequestIgnored) {
+    return;
+  } else if (e.name === "AbortError") {
+    console.log("request aborted");
+    return;
+  } else {
+    throw e;
+  }
+}
+
+// ## updater methods
+
+function updaterLoop(updater) {
+  updater.fetchPromiseFn()
+    .then(updater.updateUi)
+    .catch(handleErrors)
+    .finally(() => {
+      if (updater.enabled) { // false prevents from setting new timers
+        console.log("scheduling %s update in %d ms", updater.desc, updater.interval);
+        updater.timer = setTimeout(updaterLoop, updater.interval, updater);
+      }
+  });
+}
+
+function setUpdaterEnabled(updater, enabled) {
+  updater.enabled = enabled;
+  console.log("%s %s autoupdate", enabled ? "starting" : "stopping", updater.desc);
+  if (enabled) {
+    updaterLoop(updater);
+    if (updater.onenable) { updater.onenable(); }
+  } else {
+    clearTimeout(updater.timer);
+    updater.cancel();
+    if (updater.ondisable) { updater.ondisable(); }
+  }
+}
+
+// ## WebSocket helpers
+
+function wsSend(data) {
+  if (!ws.sock || ws.sock.readyState !== WebSocket.OPEN) {
+    ws.queue.push(data);
+    if (ws.queue.length > 5) {
+      console.warn("ws queue size is now", ws.queue.length);
+    }
+    return;
+  }
+  const message = JSON.stringify(data);
+  console.log("ws sending:", message);
+  ws.sock.send(message);
+}
+
+// ## business data methods
+
+// ### markets
+
+function isMarketId(id) {
+  return Number.isInteger(id);
+}
+
+function marketId(str) {
+  const i = Number.parseInt(str);
+  if (!isMarketId(i)) {
+    throw new Error("not a market id: " + str)
+  }
+  return i;
+}
 
 // convert ticker data we care about
 function marketUpdate(tickerItem) {
@@ -128,6 +261,121 @@ function marketsDiffHttp(tickerResp) {
   return diffOrNull(changes, additions, removals);
 }
 
+function marketsDiffWs(updates) {
+  const changes = new Map(), additions = new Map(), removals = new Map();
+  // updates look like: [ <chan id>, null,
+  // [ <pair id>, "<last trade price>", "<lowest ask>", "<highest bid>",
+  //   "<percent change in last 24 h>", "<base currency volume in last 24 h>",
+  //   "<quote currency volume in last 24 h>", <is frozen>,
+  //   "<highest trade price in last 24 h>", "<lowest trade price in last 24 h>"
+  // ], ... ]
+  for (let i = 2; i < updates.length; i++) {
+    const update = updates[i];
+    const mid = update[0];
+
+    const marketUpd = {
+      isActive: (update[7] !== 1),
+      last: update[1],
+    }
+
+    const market = markets.get(mid);
+    if (!market) { // added market
+      const newMarket = {
+        id: mid,
+        label: "UNKNOWN/UNKNOWN",
+        base: "UNKNOWN",
+        quote: "UNKNOWN",
+        last: marketUpd.last,
+        isActive: marketUpd.isActive,
+      };
+      additions.set(mid, newMarket);
+      continue;
+    }
+
+    updateTickerStatsWs(market.last, marketUpd.last);
+    const c = marketChange(market, marketUpd);
+    if (c) { changes.set(mid, c); }
+  }
+
+  if (updates.length > 2 + 1) {
+    console.warn("got more than 1 ticker update:", (updates.length - 2));
+  }
+  return diffOrNull(changes, additions, removals);
+}
+
+// apply mutations in one place, also log important events
+function updateMarkets(diff) {
+  for (const [mid, marketChange] of diff.changes) {
+    const market = markets.get(mid);
+    for (const key in marketChange) {
+      const [o, n] = marketChange[key];
+      market[key] = n;
+      if (key === "isActive") {
+        if (n === true) {
+          console.log("market activated:", market.label);
+        } else {
+          console.log("market deactivated:", market.label);
+        }
+      }
+    }
+  }
+  for (const [mid, newMarket] of diff.additions) {
+    markets.set(mid, newMarket);
+    console.log("market added:", JSON.stringify(newMarket));
+  }
+  for (const [mid, removedMarket] of diff.removals) {
+    markets.delete(mid);
+    console.log("market removed:", JSON.stringify(removedMarket));
+  }
+}
+
+function diffAndUpdateMarkets(differ, data) {
+  const diff = differ(data);
+  if (diff) {
+    updateMarkets(diff);
+  }
+  return diff;
+}
+
+function asyncFetchMarkets() {
+  return asyncFetchPolo(tickerEndpoint)
+    .then(tickerResp => {
+      if (markets) {
+        const diff = diffAndUpdateMarkets(marketsDiffHttp, tickerResp);
+        return { init: false, markets: null, diff: diff };
+      } else {
+        markets = createMarkets(tickerResp); // global
+        return { init: true, markets: markets, diff: null };
+      }
+    });
+}
+
+// ### books
+
+function asyncFetchBooks(marketId, depth = booksEndpoint.maxDepth) {
+  const m = markets.get(marketId);
+  const pair = m.base + "_" + m.quote;
+  console.log("fetching books for %s (%d), depth %d", pair, marketId, depth);
+  return asyncFetchPolo(booksEndpoint, { pair: pair, depth: depth })
+    .then(booksResp => {
+      booksResp.market = m;
+      return booksResp;
+    });
+}
+
+function asyncFetchSelectedBooks() {
+  if (!isMarketId(booksMarketId)) {
+    const reason = "skipping books update until a market is selected";
+    console.log(reason);
+    return Promise.reject(new RequestIgnored(reason));
+  }
+  return asyncFetchBooks(booksMarketId);
+}
+
+// ## UI management
+
+// ### markets
+
 function compareByLabel(a, b) {
   if (a.label < b.label) { return -1; }
   if (a.label > b.label) { return  1; }
@@ -155,32 +403,6 @@ function createMarketsTable(markets) {
 
   marketIdToPriceCell = priceCellIndex;
   console.log("markets table created in %.1f ms", performance.now() - start);
-}
-
-// apply mutations in one place, also log important events
-function updateMarkets(diff) {
-  for (const [mid, marketChange] of diff.changes) {
-    const market = markets.get(mid);
-    for (const key in marketChange) {
-      const [o, n] = marketChange[key];
-      market[key] = n;
-      if (key === "isActive") {
-        if (n === true) {
-          console.log("market activated:", market.label);
-        } else {
-          console.log("market deactivated:", market.label);
-        }
-      }
-    }
-  }
-  for (const [mid, newMarket] of diff.additions) {
-    markets.set(mid, newMarket);
-    console.log("market added:", JSON.stringify(newMarket));
-  }
-  for (const [mid, removedMarket] of diff.removals) {
-    markets.delete(mid);
-    console.log("market removed:", JSON.stringify(removedMarket));
-  }
 }
 
 function updateMarketsTable(diff) {
@@ -241,77 +463,6 @@ function updateMarketsTable(diff) {
   statsMarketsTableLastUpdated = now;
 }
 
-function diffAndUpdateMarkets(differ, data) {
-  const diff = differ(data);
-  if (diff) {
-    updateMarkets(diff);
-  }
-  return diff;
-}
-
-function diffAndUpdateMarketsUi(differ, data) {
-  const diff = diffAndUpdateMarkets(differ, data);
-  if (diff) {
-    updateMarketsTable(diff);
-  }
-}
-
-function cancelFetch(endpoint) {
-  if (endpoint.aborter) {
-    endpoint.aborter.abort();
-  }
-}
-
-class RequestIgnored extends Error {}
-
-function asyncFetchPolo(endpoint, params) {
-  if (endpoint.fetching) {
-    const reason = "ignoring fetch request until existing one finishes";
-    console.log(reason);
-    return Promise.reject(new RequestIgnored(reason));
-  }
-  endpoint.fetching = true;
-  endpoint.aborter = new AbortController();
-  const url = format(endpoint.url, params);
-  const start = performance.now();
-  const promise = fetch(url, { signal: endpoint.aborter.signal })
-    .then((response) => {
-      if (response.ok) {
-        console.log("http response begins after %d ms, status %s",
-          (performance.now() - start), response.status);
-        return response.json();
-      } else {
-        console.log("http response not ok");
-        throw new Error("Failed to fetch, status " + response.status);
-      }
-    })
-    .then((json) => {
-      console.log("http response finishes after %d ms", performance.now() - start);
-      if (json.error) {
-        throw new Error("Poloniex API error: " + json.error);
-      }
-      return json;
-    })
-    .finally(() => {
-      endpoint.fetching = false;
-    });
-  console.log("http fetch initiated");
-  return promise;
-}
-
-function asyncFetchMarkets() {
-  return asyncFetchPolo(tickerEndpoint)
-    .then(tickerResp => {
-      if (markets) {
-        const diff = diffAndUpdateMarkets(marketsDiffHttp, tickerResp);
-        return { init: false, markets: null, diff: diff };
-      } else {
-        markets = createMarkets(tickerResp); // global
-        return { init: true, markets: markets, diff: null };
-      }
-    });
-}
-
 function updateMarketsUi(update) {
   if (update.init) {
     createMarketsTable(update.markets);
@@ -320,23 +471,11 @@ function updateMarketsUi(update) {
   } // else the diff is empty, do nothing
 }
 
-function asyncUpdateMarketsUi() {
-  return asyncFetchMarkets().then(updateMarketsUi);
-}
-
-function handleErrors(e) {
-  if (e instanceof RequestIgnored) {
-    return;
-  } else if (e.name === "AbortError") {
-    console.log("request aborted");
-    return;
-  } else {
-    throw e;
+function diffAndUpdateMarketsUi(differ, data) {
+  const diff = diffAndUpdateMarkets(differ, data);
+  if (diff) {
+    updateMarketsTable(diff);
   }
-}
-
-function asyncUpdateMarketsUiNoerr() {
-  return asyncUpdateMarketsUi().catch(handleErrors);
 }
 
 const marketsUpdater = {
@@ -351,18 +490,77 @@ const marketsUpdater = {
   ondisable: () => watchMarketsBtn.value = "watch http",
 };
 
-function wsSend(data) {
-  if (!ws.sock || ws.sock.readyState !== WebSocket.OPEN) {
-    ws.queue.push(data);
-    if (ws.queue.length > 5) {
-      console.warn("ws queue size is now", ws.queue.length);
-    }
-    return;
-  }
-  const message = JSON.stringify(data);
-  console.log("ws sending:", message);
-  ws.sock.send(message);
+function asyncUpdateMarketsUi() {
+  return asyncFetchMarkets().then(updateMarketsUi);
 }
+
+function asyncUpdateMarketsUiNoerr() {
+  return asyncUpdateMarketsUi().catch(handleErrors);
+}
+
+function marketsTableClick(e) {
+  const tr = event.target.closest("tr");
+  booksMarketId = marketId(tr.dataset.id);
+  marketsTbody.querySelectorAll(".row-selected").forEach(el =>
+    el.classList.remove("row-selected"));
+  tr.classList.add("row-selected");
+  console.log("selected market", booksMarketId);
+  asyncUpdateBooksUiNoerr();
+}
+
+// ### books
+
+function createTable(tbody, rows, order = [0, 1]) {
+  tbody.innerHTML = "";
+  for (const row of rows) {
+    const tr = tbody.insertRow();
+    for (const ci of order) {
+      tr.insertCell().appendChild(document.createTextNode(parseFloat(row[ci]).toFixed(8)));
+    }
+  }
+}
+
+function setTickers(table, quote) {
+  table.querySelectorAll("th.quote-ticker").forEach(el => {
+    el.firstChild.nodeValue = quote;
+  });
+}
+
+function updateBooksUi(books) {
+  createTable(asksTbody, books.asks, [1, 0]);
+  createTable(bidsTbody, books.bids);
+  setTickers(asksTable, books.market.quote);
+  setTickers(bidsTable, books.market.quote);
+  updateBooksBtn.disabled = false;
+}
+
+const booksUpdater = {
+  desc: "books",
+  enabled: false,
+  interval: 3000,
+  timer: null,
+  fetchPromiseFn: asyncFetchSelectedBooks,
+  cancel: () => cancelFetch(booksEndpoint),
+  updateUi: updateBooksUi,
+  onenable: null,
+  ondisable: null,
+};
+
+function asyncUpdateBooksUiNoerr() {
+  asyncFetchSelectedBooks()
+    .then(updateBooksUi)
+    .catch(handleErrors);
+}
+
+// ### other UI
+
+function autoupdateToggleClick(e) {
+  const enable = e.target.checked;
+  setUpdaterEnabled(marketsUpdater, enable);
+  setUpdaterEnabled(booksUpdater, enable);
+}
+
+// ## WebSocket handling and UI management
 
 function subscribeMarkets() {
   wsSend({ "command": "subscribe", "channel": 1002 });
@@ -391,69 +589,6 @@ function onConnected(evt) {
 
   connectWsBtn.value = "disconnect ws";
   connectWsBtn.onclick = disconnect;
-}
-
-function updateTickerStatsWs(prevPrice, lastPrice) {
-  if (prevPrice === lastPrice) {
-    statsTickerPriceUnchanged += 1;
-    if (statsTickerPriceUnchanged % 400 === 0) {
-      console.log("ws ticker price unchanged: %d", statsTickerPriceUnchanged);
-    }
-  } else {
-    statsTickerPriceChanges += 1;
-    if (statsTickerPriceChanges % 40 === 0) {
-      console.log("ws ticker price changes: %d", statsTickerPriceChanges);
-    }
-  }
-}
-
-function marketsDiffWs(updates) {
-  const changes = new Map(), additions = new Map(), removals = new Map();
-  // updates look like: [ <chan id>, null,
-  // [ <pair id>, "<last trade price>", "<lowest ask>", "<highest bid>",
-  //   "<percent change in last 24 h>", "<base currency volume in last 24 h>",
-  //   "<quote currency volume in last 24 h>", <is frozen>,
-  //   "<highest trade price in last 24 h>", "<lowest trade price in last 24 h>"
-  // ], ... ]
-  for (let i = 2; i < updates.length; i++) {
-    const update = updates[i];
-    const mid = update[0];
-
-    const marketUpd = {
-      isActive: (update[7] !== 1),
-      last: update[1],
-    }
-
-    const market = markets.get(mid);
-    if (!market) { // added market
-      const newMarket = {
-        id: mid,
-        label: "UNKNOWN/UNKNOWN",
-        base: "UNKNOWN",
-        quote: "UNKNOWN",
-        last: marketUpd.last,
-        isActive: marketUpd.isActive,
-      };
-      additions.set(mid, newMarket);
-      continue;
-    }
-
-    updateTickerStatsWs(market.last, marketUpd.last);
-    const c = marketChange(market, marketUpd);
-    if (c) { changes.set(mid, c); }
-  }
-
-  if (updates.length > 2 + 1) {
-    console.warn("got more than 1 ticker update:", (updates.length - 2));
-  }
-  return diffOrNull(changes, additions, removals);
-}
-
-function updateHeartbeatStatsWs() {
-  statsHeartbeats += 1;
-  if (statsHeartbeats % 10 === 0) {
-    console.log("ws heartbeats: %d", statsHeartbeats);
-  }
 }
 
 function onMessage(evt) {
@@ -505,128 +640,30 @@ function connect() {
   onConnecting();
 }
 
-function format(template, params) { // sigh ES6
-  let res = template;
-  for (const key in params) {
-    res = res.replace("{" + key + "}", params[key]);
-  }
-  return res;
-}
+// ## stats helpers
 
-function createTable(tbody, rows, order = [0, 1]) {
-  tbody.innerHTML = "";
-  for (const row of rows) {
-    const tr = tbody.insertRow();
-    for (const ci of order) {
-      tr.insertCell().appendChild(document.createTextNode(parseFloat(row[ci]).toFixed(8)));
+function updateTickerStatsWs(prevPrice, lastPrice) {
+  if (prevPrice === lastPrice) {
+    statsTickerPriceUnchanged += 1;
+    if (statsTickerPriceUnchanged % 400 === 0) {
+      console.log("ws ticker price unchanged: %d", statsTickerPriceUnchanged);
+    }
+  } else {
+    statsTickerPriceChanges += 1;
+    if (statsTickerPriceChanges % 40 === 0) {
+      console.log("ws ticker price changes: %d", statsTickerPriceChanges);
     }
   }
 }
 
-function setTickers(table, quote) {
-  table.querySelectorAll("th.quote-ticker").forEach(el => {
-    el.firstChild.nodeValue = quote;
-  });
-}
-
-function asyncFetchBooks(marketId, depth = booksEndpoint.maxDepth) {
-  const m = markets.get(marketId);
-  const pair = m.base + "_" + m.quote;
-  console.log("fetching books for %s (%d), depth %d", pair, marketId, depth);
-  return asyncFetchPolo(booksEndpoint, { pair: pair, depth: depth })
-    .then(booksResp => {
-      booksResp.market = m;
-      return booksResp;
-    });
-}
-
-function updateBooksUi(books) {
-  createTable(asksTbody, books.asks, [1, 0]);
-  createTable(bidsTbody, books.bids);
-  setTickers(asksTable, books.market.quote);
-  setTickers(bidsTable, books.market.quote);
-  updateBooksBtn.disabled = false;
-}
-
-function isMarketId(id) {
-  return Number.isInteger(id);
-}
-
-function marketId(str) {
-  const i = Number.parseInt(str);
-  if (!isMarketId(i)) {
-    throw new Error("not a market id: " + str)
-  }
-  return i;
-}
-
-function marketsTableClick(e) {
-  const tr = event.target.closest("tr");
-  booksMarketId = marketId(tr.dataset.id);
-  marketsTbody.querySelectorAll(".row-selected").forEach(el =>
-    el.classList.remove("row-selected"));
-  tr.classList.add("row-selected");
-  console.log("selected market", booksMarketId);
-  asyncUpdateBooksUiNoerr();
-}
-
-function asyncFetchSelectedBooks() {
-  if (!isMarketId(booksMarketId)) {
-    const reason = "skipping books update until a market is selected";
-    console.log(reason);
-    return Promise.reject(new RequestIgnored(reason));
-  }
-  return asyncFetchBooks(booksMarketId);
-}
-
-function asyncUpdateBooksUiNoerr() {
-  asyncFetchSelectedBooks()
-    .then(updateBooksUi)
-    .catch(handleErrors);
-}
-
-const booksUpdater = {
-  desc: "books",
-  enabled: false,
-  interval: 3000,
-  timer: null,
-  fetchPromiseFn: asyncFetchSelectedBooks,
-  cancel: () => cancelFetch(booksEndpoint),
-  updateUi: updateBooksUi,
-  onenable: null,
-  ondisable: null,
-};
-
-function updaterLoop(updater) {
-  updater.fetchPromiseFn()
-    .then(updater.updateUi)
-    .catch(handleErrors)
-    .finally(() => {
-      if (updater.enabled) { // false prevents from setting new timers
-        console.log("scheduling %s update in %d ms", updater.desc, updater.interval);
-        updater.timer = setTimeout(updaterLoop, updater.interval, updater);
-      }
-  });
-}
-
-function setUpdaterEnabled(updater, enabled) {
-  updater.enabled = enabled;
-  console.log("%s %s autoupdate", enabled ? "starting" : "stopping", updater.desc);
-  if (enabled) {
-    updaterLoop(updater);
-    if (updater.onenable) { updater.onenable(); }
-  } else {
-    clearTimeout(updater.timer);
-    updater.cancel();
-    if (updater.ondisable) { updater.ondisable(); }
+function updateHeartbeatStatsWs() {
+  statsHeartbeats += 1;
+  if (statsHeartbeats % 10 === 0) {
+    console.log("ws heartbeats: %d", statsHeartbeats);
   }
 }
 
-function autoupdateToggleClick(e) {
-  const enable = e.target.checked;
-  setUpdaterEnabled(marketsUpdater, enable);
-  setUpdaterEnabled(booksUpdater, enable);
-}
+// ## binding it all together
 
 function initUi() {
   updateMarketsBtn.disabled = false;
