@@ -262,11 +262,13 @@ function cancelFetch(endpoint) {
   }
 }
 
+class RequestIgnored extends Error {}
+
 function asyncFetchPolo(endpoint, params) {
   if (endpoint.fetching) {
     const reason = "ignoring fetch request until existing one finishes";
     console.log(reason);
-    return Promise.reject(reason);
+    return Promise.reject(new RequestIgnored(reason));
   }
   endpoint.fetching = true;
   endpoint.aborter = new AbortController();
@@ -289,14 +291,6 @@ function asyncFetchPolo(endpoint, params) {
         throw new Error("Poloniex API error: " + json.error);
       }
       return json;
-    })
-    .catch((e) => {
-      if (e.name === "AbortError") {
-        console.log("fetch aborted:", endpoint.url);
-      } else {
-        console.error("error fetching:", e);
-      }
-      throw e; // prevent success handlers down the promise chain
     })
     .finally(() => {
       endpoint.fetching = false;
@@ -330,8 +324,19 @@ function asyncUpdateMarketsUi() {
   return asyncFetchMarkets().then(updateMarketsUi);
 }
 
+function handleErrors(e) {
+  if (e instanceof RequestIgnored) {
+    return;
+  } else if (e.name === "AbortError") {
+    console.log("request aborted");
+    return;
+  } else {
+    throw e;
+  }
+}
+
 function asyncUpdateMarketsUiNoerr() {
-  return asyncUpdateMarketsUi().catch(() => {}); // todo: do not silence all errors
+  return asyncUpdateMarketsUi().catch(handleErrors);
 }
 
 const marketsUpdater = {
@@ -567,8 +572,9 @@ function marketsTableClick(e) {
 
 function asyncFetchSelectedBooks() {
   if (!isMarketId(booksMarketId)) {
-    console.log("skipping books update until a market is selected");
-    return Promise.resolve(null);
+    const reason = "skipping books update until a market is selected";
+    console.log(reason);
+    return Promise.reject(new RequestIgnored(reason));
   }
   return asyncFetchBooks(booksMarketId);
 }
@@ -576,7 +582,7 @@ function asyncFetchSelectedBooks() {
 function asyncUpdateBooksUiNoerr() {
   asyncFetchSelectedBooks()
     .then(updateBooksUi)
-    .catch(() => {}); // todo: do not silence all errors
+    .catch(handleErrors);
 }
 
 const booksUpdater = {
@@ -594,7 +600,7 @@ const booksUpdater = {
 function updaterLoop(updater) {
   updater.fetchPromiseFn()
     .then(updater.updateUi)
-    .catch(() => {}) // todo: do not silence all errors
+    .catch(handleErrors)
     .finally(() => {
       if (updater.enabled) { // false prevents from setting new timers
         console.log("scheduling %s update in %d ms", updater.desc, updater.interval);
