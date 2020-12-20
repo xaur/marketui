@@ -322,7 +322,7 @@ function asyncFetchMarketsNoerr() {
 }
 
 function marketsAutoupdateLoop() {
-  asyncFetchMarketsNoerr().then(() => {
+  asyncFetchMarketsNoerr().finally(() => {
     if (marketsAutoupdateEnabled) {
       console.log("scheduling markets update in %d ms", marketsAutoupdateInterval);
       marketsAutoupdateTimer = setTimeout(marketsAutoupdateLoop, marketsAutoupdateInterval);
