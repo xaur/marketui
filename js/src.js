@@ -40,6 +40,7 @@ const ws = {
   queue: [],
 };
 
+let booksMarketId;
 let booksAutoupdateEnabled = false;
 let booksAutoupdateInterval = 3000;
 let booksAutoupdateTimer;
@@ -539,27 +540,34 @@ function asyncFetchBooksNoerr(marketId) {
   return asyncFetchOrderBooks(marketId).catch(() => {});
 }
 
+function isMarketId(id) {
+  return Number.isInteger(id);
+}
+
+function marketId(str) {
+  const i = Number.parseInt(str);
+  if (!isMarketId(i)) {
+    throw new Error("not a market id: " + str)
+  }
+  return i;
+}
+
 function marketsTableClick(e) {
   const tr = event.target.closest("tr");
-  const midstr = tr.dataset.id;
-  marketsTable.dataset.selectedMarketId = midstr; // String = String
+  booksMarketId = marketId(tr.dataset.id);
   marketsTbody.querySelectorAll(".row-selected").forEach(el =>
     el.classList.remove("row-selected"));
   tr.classList.add("row-selected");
-
-  const mid = parseInt(midstr);
-  console.log("selected market", mid);
-  asyncFetchBooksNoerr(mid);
+  console.log("selected market", booksMarketId);
+  asyncFetchBooksNoerr(booksMarketId);
 }
 
 function asyncUpdateSelectedBooks() {
-  const midstr = marketsTable.dataset.selectedMarketId;
-  if (!midstr) {
+  if (!isMarketId(booksMarketId)) {
     console.log("skipping books update until a market is selected");
     return Promise.resolve(null);
   }
-  const mid = parseInt(midstr);
-  return asyncFetchBooksNoerr(mid);
+  return asyncFetchBooksNoerr(booksMarketId);
 }
 
 function booksAutoupdateLoop() {
