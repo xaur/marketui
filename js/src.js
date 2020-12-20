@@ -41,9 +41,6 @@ const ws = {
 };
 
 let booksMarketId;
-let booksAutoupdateEnabled = false;
-let booksAutoupdateInterval = 3000;
-let booksAutoupdateTimer;
 
 // stats
 let statsHeartbeats = 0;
@@ -570,31 +567,42 @@ function asyncUpdateSelectedBooks() {
   return asyncUpdateBooksNoerr(booksMarketId);
 }
 
-function booksAutoupdateLoop() {
-  asyncUpdateSelectedBooks().finally(() => {
-    if (booksAutoupdateEnabled) {
-      console.log("scheduling books update in %d ms", booksAutoupdateInterval);
-      booksAutoupdateTimer = setTimeout(booksAutoupdateLoop, booksAutoupdateInterval);
-    }
+const booksUpdater = {
+  desc: "books",
+  enabled: false,
+  interval: 3000,
+  timer: null,
+  fetchPromiseFn: asyncUpdateSelectedBooks,
+  cancel: () => cancelFetch(booksEndpoint),
+  updateUi: (x) => { console.log("UI updater stub") },
+};
+
+function updaterLoop(updater) {
+  updater.fetchPromiseFn()
+    .then((data) => updater.updateUi(data))
+    .finally(() => {
+      if (updater.enabled) { // false prevents from setting new timers
+        console.log("scheduling %s update in %d ms", updater.desc, updater.interval);
+        updater.timer = setTimeout(updaterLoop, updater.interval, updater);
+      }
   });
 }
 
-function setBooksAutoupdate(enabled) {
-  booksAutoupdateEnabled = enabled; // false prevents booksAutoupdateLoop from setting new timers
+function setUpdaterEnabled(updater, enabled) {
+  updater.enabled = enabled;
+  console.log("%s %s autoupdate", enabled ? "starting" : "stopping", updater.desc);
   if (enabled) {
-    console.log("starting books autoupdate");
-    booksAutoupdateLoop();
+    updaterLoop(updater);
   } else {
-    console.log("stopping books autoupdate");
-    clearTimeout(booksAutoupdateTimer); // cancel pending timers
-    cancelFetch(booksEndpoint); // cancel active fetches
+    clearTimeout(updater.timer);
+    updater.cancel();
   }
 }
 
 function autoupdateToggleClick(e) {
   const enable = e.target.checked;
   setMarketsAutoupdate(enable);
-  setBooksAutoupdate(enable);
+  setUpdaterEnabled(booksUpdater, enable);
 }
 
 function initUi() {
