@@ -241,10 +241,17 @@ function updateMarketsTable(diff) {
   statsMarketsTableLastUpdated = now;
 }
 
-function diffAndUpdate(differ, data) {
+function diffAndUpdateMarkets(differ, data) {
   const diff = differ(data);
   if (diff) {
     updateMarkets(diff);
+  }
+  return diff;
+}
+
+function diffAndUpdateMarketsUi(differ, data) {
+  const diff = diffAndUpdateMarkets(differ, data);
+  if (diff) {
     updateMarketsTable(diff);
   }
 }
@@ -298,22 +305,33 @@ function asyncFetchPolo(endpoint, params) {
   return promise;
 }
 
-function asyncUpdateMarkets() {
-  return asyncFetchPolo(tickerEndpoint).then((json) => {
-    if (markets) {
-      diffAndUpdate(marketsDiffHttp, json);
-    } else {
-      markets = createMarkets(json);
-      createMarketsTable(markets);
-    }
-    // return a true-ish value to signal downstream consumers that no error
-    // took place
-    return markets;
-  });
+function asyncFetchMarkets() {
+  return asyncFetchPolo(tickerEndpoint)
+    .then(tickerResp => {
+      if (markets) {
+        const diff = diffAndUpdateMarkets(marketsDiffHttp, tickerResp);
+        return { init: false, markets: null, diff: diff };
+      } else {
+        markets = createMarkets(tickerResp); // global
+        return { init: true, markets: markets, diff: null };
+      }
+    });
 }
 
-function asyncUpdateMarketsNoerr() {
-  return asyncUpdateMarkets().catch(() => {}); // silence errors
+function updateMarketsUi(update) {
+  if (update.init) {
+    createMarketsTable(update.markets);
+  } else if (update.diff) {
+    updateMarketsTable(update.diff);
+  } // else the diff is empty, do nothing
+}
+
+function asyncUpdateMarketsUi() {
+  return asyncFetchMarkets().then(updateMarketsUi);
+}
+
+function asyncUpdateMarketsUiNoerr() {
+  return asyncUpdateMarketsUi().catch(() => {}); // todo: do not silence all errors
 }
 
 const marketsUpdater = {
@@ -321,9 +339,9 @@ const marketsUpdater = {
   enabled: false,
   interval: 10000,
   timer: null,
-  fetchPromiseFn: asyncUpdateMarketsNoerr,
+  fetchPromiseFn: asyncFetchMarkets,
   cancel: () => cancelFetch(tickerEndpoint),
-  updateUi: (x) => { console.log("markets UI updater stub") },
+  updateUi: updateMarketsUi,
   onenable: () => watchMarketsBtn.value = "unwatch http",
   ondisable: () => watchMarketsBtn.value = "watch http",
 };
@@ -443,7 +461,7 @@ function onMessage(evt) {
       console.log("ws ticker subscription server ack");
       return;
     }
-    diffAndUpdate(marketsDiffWs, data);
+    diffAndUpdateMarketsUi(marketsDiffWs, data);
   } else {
     console.warn("received data we didn't subscribe for:", JSON.stringify(data));
   }
@@ -461,7 +479,7 @@ function connect() {
     subscribeMarkets();
   } else {
     console.log("fetching markets data for the first time");
-    asyncUpdateMarkets().then((markets) => {
+    asyncUpdateMarketsUi().then(() => {
       // todo: if markets promise gets rejected, subscription never happens
       if (markets) {
         // only subscribe to updates if markets db was populated
@@ -520,7 +538,7 @@ function asyncUpdateBooks(marketId, depth = booksEndpoint.maxDepth) {
 }
 
 function asyncUpdateBooksNoerr(marketId) {
-  return asyncUpdateBooks(marketId).catch(() => {});
+  return asyncUpdateBooks(marketId).catch(() => {}); // todo: do not silence all errors
 }
 
 function isMarketId(id) {
@@ -550,6 +568,7 @@ function asyncUpdateSelectedBooks() {
     console.log("skipping books update until a market is selected");
     return Promise.resolve(null);
   }
+  // todo: change to non-silencing version and silence errors later
   return asyncUpdateBooksNoerr(booksMarketId);
 }
 
@@ -558,7 +577,7 @@ const booksUpdater = {
   enabled: false,
   interval: 3000,
   timer: null,
-  fetchPromiseFn: asyncUpdateSelectedBooks,
+  fetchPromiseFn: asyncUpdateSelectedBooks, // todo: verify error propagation
   cancel: () => cancelFetch(booksEndpoint),
   updateUi: (x) => { console.log("UI updater stub") },
   onenable: null,
@@ -567,7 +586,8 @@ const booksUpdater = {
 
 function updaterLoop(updater) {
   updater.fetchPromiseFn()
-    .then((data) => updater.updateUi(data))
+    .then((data) => updater.updateUi(data)) // todo: simplify
+    // todo: silence errors here
     .finally(() => {
       if (updater.enabled) { // false prevents from setting new timers
         console.log("scheduling %s update in %d ms", updater.desc, updater.interval);
@@ -597,7 +617,7 @@ function autoupdateToggleClick(e) {
 
 function initUi() {
   updateMarketsBtn.disabled = false;
-  updateMarketsBtn.onclick = (e => asyncUpdateMarketsNoerr());
+  updateMarketsBtn.onclick = (e => asyncUpdateMarketsUiNoerr());
 
   updateBooksBtn.onclick = (e => asyncUpdateSelectedBooks());
 
