@@ -524,21 +524,23 @@ function setTickers(table, quote) {
   });
 }
 
-function asyncUpdateBooks(marketId, depth = booksEndpoint.maxDepth) {
+function asyncFetchBooks(marketId, depth = booksEndpoint.maxDepth) {
   const m = markets.get(marketId);
   const pair = m.base + "_" + m.quote;
   console.log("fetching books for %s (%d), depth %d", pair, marketId, depth);
-  return asyncFetchPolo(booksEndpoint, { pair: pair, depth: depth }).then(json => {
-    createTable(asksTbody, json.asks, [1, 0]);
-    createTable(bidsTbody, json.bids);
-    setTickers(asksTable, m.quote);
-    setTickers(bidsTable, m.quote);
-    updateBooksBtn.disabled = false;
-  });
+  return asyncFetchPolo(booksEndpoint, { pair: pair, depth: depth })
+    .then(booksResp => {
+      booksResp.market = m;
+      return booksResp;
+    });
 }
 
-function asyncUpdateBooksNoerr(marketId) {
-  return asyncUpdateBooks(marketId).catch(() => {}); // todo: do not silence all errors
+function updateBooksUi(books) {
+  createTable(asksTbody, books.asks, [1, 0]);
+  createTable(bidsTbody, books.bids);
+  setTickers(asksTable, books.market.quote);
+  setTickers(bidsTable, books.market.quote);
+  updateBooksBtn.disabled = false;
 }
 
 function isMarketId(id) {
@@ -560,16 +562,21 @@ function marketsTableClick(e) {
     el.classList.remove("row-selected"));
   tr.classList.add("row-selected");
   console.log("selected market", booksMarketId);
-  asyncUpdateBooksNoerr(booksMarketId);
+  asyncUpdateBooksUiNoerr();
 }
 
-function asyncUpdateSelectedBooks() {
+function asyncFetchSelectedBooks() {
   if (!isMarketId(booksMarketId)) {
     console.log("skipping books update until a market is selected");
     return Promise.resolve(null);
   }
-  // todo: change to non-silencing version and silence errors later
-  return asyncUpdateBooksNoerr(booksMarketId);
+  return asyncFetchBooks(booksMarketId);
+}
+
+function asyncUpdateBooksUiNoerr() {
+  asyncFetchSelectedBooks()
+    .then(updateBooksUi)
+    .catch(() => {}); // todo: do not silence all errors
 }
 
 const booksUpdater = {
@@ -577,17 +584,17 @@ const booksUpdater = {
   enabled: false,
   interval: 3000,
   timer: null,
-  fetchPromiseFn: asyncUpdateSelectedBooks, // todo: verify error propagation
+  fetchPromiseFn: asyncFetchSelectedBooks,
   cancel: () => cancelFetch(booksEndpoint),
-  updateUi: (x) => { console.log("UI updater stub") },
+  updateUi: updateBooksUi,
   onenable: null,
   ondisable: null,
 };
 
 function updaterLoop(updater) {
   updater.fetchPromiseFn()
-    .then((data) => updater.updateUi(data)) // todo: simplify
-    // todo: silence errors here
+    .then(updater.updateUi)
+    .catch(() => {}) // todo: do not silence all errors
     .finally(() => {
       if (updater.enabled) { // false prevents from setting new timers
         console.log("scheduling %s update in %d ms", updater.desc, updater.interval);
@@ -619,7 +626,7 @@ function initUi() {
   updateMarketsBtn.disabled = false;
   updateMarketsBtn.onclick = (e => asyncUpdateMarketsUiNoerr());
 
-  updateBooksBtn.onclick = (e => asyncUpdateSelectedBooks());
+  updateBooksBtn.onclick = (e => asyncUpdateBooksUiNoerr());
 
   watchMarketsBtn.disabled = false;
   watchMarketsBtn.onclick = (e => setUpdaterEnabled(marketsUpdater, !marketsUpdater.enabled));
