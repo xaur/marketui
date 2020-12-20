@@ -304,7 +304,7 @@ function asyncFetchPolo(endpoint, params) {
   return promise;
 }
 
-function asyncFetchMarkets() {
+function asyncUpdateMarkets() {
   return asyncFetchPolo(tickerEndpoint).then((json) => {
     if (markets) {
       diffAndUpdate(marketsDiffHttp, json);
@@ -318,12 +318,12 @@ function asyncFetchMarkets() {
   });
 }
 
-function asyncFetchMarketsNoerr() {
-  return asyncFetchMarkets().catch(() => {}); // silence errors
+function asyncUpdateMarketsNoerr() {
+  return asyncUpdateMarkets().catch(() => {}); // silence errors
 }
 
 function marketsAutoupdateLoop() {
-  asyncFetchMarketsNoerr().finally(() => {
+  asyncUpdateMarketsNoerr().finally(() => {
     if (marketsAutoupdateEnabled) {
       console.log("scheduling markets update in %d ms", marketsAutoupdateInterval);
       marketsAutoupdateTimer = setTimeout(marketsAutoupdateLoop, marketsAutoupdateInterval);
@@ -478,7 +478,7 @@ function connect() {
     subscribeMarkets();
   } else {
     console.log("fetching markets data for the first time");
-    asyncFetchMarkets().then((markets) => {
+    asyncUpdateMarkets().then((markets) => {
       // todo: if markets promise gets rejected, subscription never happens
       if (markets) {
         // only subscribe to updates if markets db was populated
@@ -523,7 +523,7 @@ function setTickers(table, quote) {
   });
 }
 
-function asyncFetchOrderBooks(marketId, depth = booksEndpoint.maxDepth) {
+function asyncUpdateBooks(marketId, depth = booksEndpoint.maxDepth) {
   const m = markets.get(marketId);
   const pair = m.base + "_" + m.quote;
   console.log("fetching books for %s (%d), depth %d", pair, marketId, depth);
@@ -536,8 +536,8 @@ function asyncFetchOrderBooks(marketId, depth = booksEndpoint.maxDepth) {
   });
 }
 
-function asyncFetchBooksNoerr(marketId) {
-  return asyncFetchOrderBooks(marketId).catch(() => {});
+function asyncUpdateBooksNoerr(marketId) {
+  return asyncUpdateBooks(marketId).catch(() => {});
 }
 
 function isMarketId(id) {
@@ -559,7 +559,7 @@ function marketsTableClick(e) {
     el.classList.remove("row-selected"));
   tr.classList.add("row-selected");
   console.log("selected market", booksMarketId);
-  asyncFetchBooksNoerr(booksMarketId);
+  asyncUpdateBooksNoerr(booksMarketId);
 }
 
 function asyncUpdateSelectedBooks() {
@@ -567,7 +567,7 @@ function asyncUpdateSelectedBooks() {
     console.log("skipping books update until a market is selected");
     return Promise.resolve(null);
   }
-  return asyncFetchBooksNoerr(booksMarketId);
+  return asyncUpdateBooksNoerr(booksMarketId);
 }
 
 function booksAutoupdateLoop() {
@@ -599,7 +599,7 @@ function autoupdateToggleClick(e) {
 
 function initUi() {
   updateMarketsBtn.disabled = false;
-  updateMarketsBtn.onclick = (e => asyncFetchMarketsNoerr());
+  updateMarketsBtn.onclick = (e => asyncUpdateMarketsNoerr());
 
   updateBooksBtn.onclick = (e => asyncUpdateSelectedBooks());
 
