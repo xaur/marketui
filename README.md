@@ -51,3 +51,5 @@ Option 2:
 ### Contact
 
 If you have any issue please submit it [here](https://github.com/xaur/marketui/issues). Please note this is a hobby experiment and I don't commit to anything at this stage.
+
+If marketui was useful to you, feel free to tip me with a bit of DCR at DsefC8JBDkkyASdXrqA3HDzBByNhffLMjQS
