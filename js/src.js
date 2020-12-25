@@ -463,11 +463,27 @@ function updateMarketsTable(diff) {
   statsMarketsTableLastUpdated = now;
 }
 
+function setDocTitle(marketLabel, price) {
+  document.title = price + " " + marketLabel;
+}
+
+function updateDocTitle(diff) {
+  const selMarketChange = diff.changes.get(booksMarketId);
+  if (selMarketChange) {
+    const priceChange = selMarketChange.last;
+    if (priceChange) {
+      const [o, n] = priceChange;
+      setDocTitle(markets.get(booksMarketId).label, n);
+    }
+  }
+}
+
 function updateMarketsUi(update) {
   if (update.init) {
     createMarketsTable(update.markets);
   } else if (update.diff) {
     updateMarketsTable(update.diff);
+    updateDocTitle(update.diff);
   } // else the diff is empty, do nothing
 }
 
@@ -504,6 +520,8 @@ function marketsTableClick(e) {
   marketsTbody.querySelectorAll(".row-selected").forEach(el =>
     el.classList.remove("row-selected"));
   tr.classList.add("row-selected");
+  const market = markets.get(booksMarketId);
+  setDocTitle(market.label, market.last);
   console.log("selected market", booksMarketId);
   asyncUpdateBooksUiNoerr();
 }
