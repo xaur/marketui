@@ -45,7 +45,7 @@ const ws = {
 // ## business data state
 
 let markets; // Map
-let booksMarketId;
+let selectedMarketId;
 
 // ## stats
 
@@ -364,12 +364,12 @@ function asyncFetchBooks(marketId, depth = booksEndpoint.maxDepth) {
 }
 
 function asyncFetchSelectedBooks() {
-  if (!isMarketId(booksMarketId)) {
+  if (!isMarketId(selectedMarketId)) {
     const reason = "skipping books update until a market is selected";
     console.log(reason);
     return Promise.reject(new RequestIgnored(reason));
   }
-  return asyncFetchBooks(booksMarketId);
+  return asyncFetchBooks(selectedMarketId);
 }
 
 // ## UI management
@@ -468,12 +468,12 @@ function setDocTitle(marketLabel, price) {
 }
 
 function updateDocTitle(diff) {
-  const selMarketChange = diff.changes.get(booksMarketId);
+  const selMarketChange = diff.changes.get(selectedMarketId);
   if (selMarketChange) {
     const priceChange = selMarketChange.last;
     if (priceChange) {
       const [o, n] = priceChange;
-      setDocTitle(markets.get(booksMarketId).label, n);
+      setDocTitle(markets.get(selectedMarketId).label, n);
     }
   }
 }
@@ -516,13 +516,13 @@ function asyncUpdateMarketsUiNoerr() {
 
 function marketsTableClick(e) {
   const tr = event.target.closest("tr");
-  booksMarketId = marketId(tr.dataset.id);
+  selectedMarketId = marketId(tr.dataset.id);
   marketsTbody.querySelectorAll(".row-selected").forEach(el =>
     el.classList.remove("row-selected"));
   tr.classList.add("row-selected");
-  const market = markets.get(booksMarketId);
+  const market = markets.get(selectedMarketId);
   setDocTitle(market.label, market.last);
-  console.log("selected market", booksMarketId);
+  console.log("selected market", selectedMarketId);
   asyncUpdateBooksUiNoerr();
 }
 
