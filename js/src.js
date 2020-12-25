@@ -10,8 +10,10 @@ const updateMarketsBtn = document.getElementById("update-markets-btn");
 
 // ## books widgets
 
+const asksWidget = document.getElementById("asks-widget");
 const asksTable = document.getElementById("asks-table");
 const asksTbody = document.getElementById("asks-tbody");
+const bidsWidget = document.getElementById("bids-widget");
 const bidsTable = document.getElementById("bids-table");
 const bidsTbody = document.getElementById("bids-tbody");
 const updateBooksBtn = document.getElementById("update-books-btn");
@@ -545,6 +547,8 @@ function setTickers(table, quote) {
 }
 
 function updateBooksUi(books) {
+  asksWidget.scrollTop = 0;
+  bidsWidget.scrollTop = 0;
   createTable(asksTbody, books.asks, [1, 0]);
   createTable(bidsTbody, books.bids);
   setTickers(asksTable, books.market.quote);
