@@ -26,12 +26,14 @@ const connectWsBtn = document.getElementById("connect-ws-btn");
 // ## endpoints and their state https://docs.poloniex.com/
 
 const tickerEndpoint = {
+  name: "ticker",
   url: "https://poloniex.com/public?command=returnTicker",
   fetching: false,
   aborter: null,
 };
 
 const booksEndpoint = {
+  name: "books",
   url: "https://poloniex.com/public?command=returnOrderBook&currencyPair={pair}&depth={depth}",
   fetching: false,
   aborter: null,
@@ -89,8 +91,6 @@ function asyncFetchPolo(endpoint, params) {
   const promise = fetch(url, { signal: endpoint.aborter.signal })
     .then((response) => {
       if (response.ok) {
-        console.log("http response begins after %d ms, status %s",
-          (performance.now() - start), response.status);
         return response.json();
       } else {
         console.log("http response not ok");
@@ -98,7 +98,7 @@ function asyncFetchPolo(endpoint, params) {
       }
     })
     .then((json) => {
-      console.log("http response finishes after %d ms", performance.now() - start);
+      console.log("%s request took %d ms", endpoint.name, performance.now() - start);
       if (json.error) {
         throw new Error("Poloniex API error: " + json.error);
       }
@@ -107,7 +107,6 @@ function asyncFetchPolo(endpoint, params) {
     .finally(() => {
       endpoint.fetching = false;
     });
-  console.log("http fetch initiated");
   return promise;
 }
 
@@ -130,7 +129,6 @@ function updaterLoop(updater) {
     .catch(handleErrors)
     .finally(() => {
       if (updater.enabled) { // false prevents from setting new timers
-        console.log("scheduling %s update in %d ms", updater.desc, updater.interval);
         updater.timer = setTimeout(updaterLoop, updater.interval, updater);
       }
   });
@@ -138,7 +136,8 @@ function updaterLoop(updater) {
 
 function setUpdaterEnabled(updater, enabled) {
   updater.enabled = enabled;
-  console.log("%s %s autoupdate", enabled ? "starting" : "stopping", updater.desc);
+  console.log("%s %s autoupdate every %d ms", enabled ? "starting" : "stopping",
+    updater.desc, updater.interval);
   if (enabled) {
     updaterLoop(updater);
     if (updater.onenable) { updater.onenable(); }
@@ -357,7 +356,6 @@ function asyncFetchMarkets() {
 function asyncFetchBooks(marketId, depth = booksEndpoint.maxDepth) {
   const m = markets.get(marketId);
   const pair = m.base + "_" + m.quote;
-  console.log("fetching books for %s (%d), depth %d", pair, marketId, depth);
   return asyncFetchPolo(booksEndpoint, { pair: pair, depth: depth })
     .then(booksResp => {
       booksResp.market = m;
@@ -368,7 +366,6 @@ function asyncFetchBooks(marketId, depth = booksEndpoint.maxDepth) {
 function asyncFetchSelectedBooks() {
   if (!isMarketId(selectedMarketId)) {
     const reason = "skipping books update until a market is selected";
-    console.log(reason);
     return Promise.reject(new RequestIgnored(reason));
   }
   return asyncFetchBooks(selectedMarketId);
@@ -524,7 +521,6 @@ function marketsTableClick(e) {
   tr.classList.add("row-selected");
   const market = markets.get(selectedMarketId);
   setDocTitle(market.label, market.last);
-  console.log("selected market", selectedMarketId);
   asyncUpdateBooksUiNoerr();
 }
 
