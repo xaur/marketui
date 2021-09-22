@@ -2,7 +2,7 @@
 
 _Just give me the damn books!_
 
-![](https://raw.githubusercontent.com/xaur/marketui/media/media/v0.1.png)
+![](https://raw.githubusercontent.com/xaur/marketui/media/media/v0.2.png)
 
 `marketui` is a small web page to see Poloniex order books without clutter and slow load times.
 
