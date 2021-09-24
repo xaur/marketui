@@ -5,7 +5,7 @@
 const marketsTable = document.getElementById("markets-table");
 const marketsTbody = document.getElementById("markets-tbody");
 let marketIdToPriceCell; // Map
-let statsMarketsTableLastUpdated;
+let metMarketsTableLastUpdated;
 
 const watchMarketsBtn = document.getElementById("watch-markets-btn");
 const updateMarketsBtn = document.getElementById("update-markets-btn");
@@ -47,9 +47,9 @@ const ws = {
   sock: undefined,
   queue: [],
 };
-let statsHeartbeats = 0;
-let statsTickerPriceChanges = 0;
-let statsTickerPriceUnchanged = 0;
+let metWsHeartbeats = 0;
+let metWsTickerPriceChanges = 0;
+let metWsTickerPriceUnchanged = 0;
 
 // ## business data state
 
@@ -260,16 +260,16 @@ function marketsDiffHttp(tickerResp) {
   return diffOrNull(changes, additions, removals);
 }
 
-function updateTickerStatsWs(prevPrice, lastPrice) {
+function bumpWsTickerPriceMetrics(prevPrice, lastPrice) {
   if (prevPrice === lastPrice) {
-    statsTickerPriceUnchanged += 1;
-    if (statsTickerPriceUnchanged % 400 === 0) {
-      console.log("ws ticker price unchanged: %d", statsTickerPriceUnchanged);
+    metWsTickerPriceUnchanged += 1;
+    if (metWsTickerPriceUnchanged % 400 === 0) {
+      console.log("ws ticker price unchanged: %d", metWsTickerPriceUnchanged);
     }
   } else {
-    statsTickerPriceChanges += 1;
-    if (statsTickerPriceChanges % 40 === 0) {
-      console.log("ws ticker price changes: %d", statsTickerPriceChanges);
+    metWsTickerPriceChanges += 1;
+    if (metWsTickerPriceChanges % 40 === 0) {
+      console.log("ws ticker price changes: %d", metWsTickerPriceChanges);
     }
   }
 }
@@ -305,7 +305,7 @@ function marketsDiffWs(updates) {
       continue;
     }
 
-    updateTickerStatsWs(market.last, marketUpd.last);
+    bumpWsTickerPriceMetrics(market.last, marketUpd.last);
     const c = marketChange(market, marketUpd);
     if (c) { changes.set(mid, c); }
   }
@@ -414,7 +414,7 @@ function createMarketsTable(markets) {
 
   marketIdToPriceCell = priceCellIndex;
 
-  statsMarketsTableLastUpdated = performance.now();
+  metMarketsTableLastUpdated = performance.now();
   console.log("markets table created in %.1f ms", performance.now() - start);
 }
 
@@ -471,9 +471,9 @@ function updateMarketsTable(diff) {
   const now = performance.now();
   console.log("markets table updated in %.1f ms with %d changes, "
     + "%d ms since last update", (now - updateStart), changes.size,
-    (now - statsMarketsTableLastUpdated),
+    (now - metMarketsTableLastUpdated),
   );
-  statsMarketsTableLastUpdated = now;
+  metMarketsTableLastUpdated = now;
 }
 
 function setDocTitle(marketLabel, price) {
@@ -623,10 +623,10 @@ function onConnected(evt) {
   connectWsBtn.onclick = disconnect;
 }
 
-function updateHeartbeatStatsWs() {
-  statsHeartbeats += 1;
-  if (statsHeartbeats % 10 === 0) {
-    console.log("ws heartbeats: %d", statsHeartbeats);
+function bumpWsHeartbeatMetrics() {
+  metWsHeartbeats += 1;
+  if (metWsHeartbeats % 10 === 0) {
+    console.log("ws heartbeats: %d", metWsHeartbeats);
   }
 }
 
@@ -634,7 +634,7 @@ function onMessage(evt) {
   const data = JSON.parse(evt.data);
   const [channel, seq] = data;
   if (channel === 1010) {
-    updateHeartbeatStatsWs();
+    bumpWsHeartbeatMetrics();
   } else if (channel === 1002) {
     if (seq === 1) {
       console.log("ws ticker subscription server ack");
