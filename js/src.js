@@ -76,7 +76,7 @@ function cancelFetch(endpoint) {
   }
 }
 
-function asyncFetchPolo(endpoint, params) {
+function asyncFetchJson(endpoint, params) {
   if (endpoint.fetching) {
     const reason = "ignoring fetch request until existing one finishes";
     console.log(reason);
@@ -89,23 +89,31 @@ function asyncFetchPolo(endpoint, params) {
   const promise = fetch(url, { signal: endpoint.aborter.signal })
     .then((response) => {
       if (response.ok) {
+        // start async reading and parsing as JSON
         return response.json();
       } else {
-        console.log("http response not ok");
+        console.log("%s response not ok", endpoint.name);
         throw new Error("Failed to fetch, status " + response.status);
       }
     })
     .then((json) => {
       console.log("%s request took %d ms", endpoint.name, performance.now() - start);
-      if (json.error) {
-        throw new Error("Poloniex API error: " + json.error);
-      }
       return json;
     })
     .finally(() => {
       endpoint.fetching = false;
     });
   return promise;
+}
+
+function asyncFetchPoloniex(endpoint, params) {
+  return asyncFetchJson(endpoint, params)
+    .then(apiResp => {
+      if (apiResp.error) {
+        throw new Error("Poloniex API error: " + apiResp.error);
+      }
+      return apiResp;
+    });
 }
 
 function handleErrors(e) {
@@ -351,7 +359,7 @@ function diffAndUpdateMarkets(differ, data) {
 }
 
 function asyncFetchMarkets() {
-  return asyncFetchPolo(tickerEndpoint)
+  return asyncFetchPoloniex(tickerEndpoint)
     .then(tickerResp => {
       if (markets) {
         const diff = diffAndUpdateMarkets(marketsDiffHttp, tickerResp);
@@ -368,7 +376,7 @@ function asyncFetchMarkets() {
 function asyncFetchBooks(marketId, depth = booksEndpoint.maxDepth) {
   const m = markets.get(marketId);
   const pair = m.base + "_" + m.quote;
-  return asyncFetchPolo(booksEndpoint, { pair: pair, depth: depth })
+  return asyncFetchPoloniex(booksEndpoint, { pair: pair, depth: depth })
     .then(booksResp => {
       booksResp.market = m;
       return booksResp;
