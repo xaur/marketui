@@ -1,5 +1,15 @@
 "use strict";
 
+// ## JS utils
+
+function format(template, params) {
+  let res = template;
+  for (const key in params) {
+    res = res.replace("{" + key + "}", params[key]);
+  }
+  return res;
+}
+
 // ## markets widgets
 
 const marketsTable = document.getElementById("markets-table");
@@ -55,16 +65,6 @@ let metWsTickerPriceUnchanged = 0;
 
 let markets; // Map
 let selectedMarketId;
-
-// ## js utils
-
-function format(template, params) { // sigh ES6
-  let res = template;
-  for (const key in params) {
-    res = res.replace("{" + key + "}", params[key]);
-  }
-  return res;
-}
 
 // ## endpoint methods
 
