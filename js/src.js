@@ -96,11 +96,8 @@ function asyncFetchJson(endpoint, params) {
         throw new Error("Failed to fetch, status " + response.status);
       }
     })
-    .then((json) => {
-      console.log("%s request took %d ms", endpoint.name, performance.now() - start);
-      return json;
-    })
     .finally(() => {
+      console.log("%s request took %d ms", endpoint.name, performance.now() - start);
       endpoint.fetching = false;
     });
   return promise;
