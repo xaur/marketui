@@ -5,6 +5,8 @@
 const marketsTable = document.getElementById("markets-table");
 const marketsTbody = document.getElementById("markets-tbody");
 let marketIdToPriceCell; // Map
+let statsMarketsTableLastUpdated = performance.now();
+
 const watchMarketsBtn = document.getElementById("watch-markets-btn");
 const updateMarketsBtn = document.getElementById("update-markets-btn");
 
@@ -45,18 +47,14 @@ const ws = {
   sock: undefined,
   queue: [],
 };
+let statsHeartbeats = 0;
+let statsTickerPriceChanges = 0;
+let statsTickerPriceUnchanged = 0;
 
 // ## business data state
 
 let markets; // Map
 let selectedMarketId;
-
-// ## stats
-
-let statsHeartbeats = 0;
-let statsTickerPriceChanges = 0;
-let statsTickerPriceUnchanged = 0;
-let statsMarketsTableLastUpdated = performance.now();
 
 // ## js utils
 
@@ -260,6 +258,20 @@ function marketsDiffHttp(tickerResp) {
 
   console.log("markets diff computed in %.1f ms", performance.now() - start);
   return diffOrNull(changes, additions, removals);
+}
+
+function updateTickerStatsWs(prevPrice, lastPrice) {
+  if (prevPrice === lastPrice) {
+    statsTickerPriceUnchanged += 1;
+    if (statsTickerPriceUnchanged % 400 === 0) {
+      console.log("ws ticker price unchanged: %d", statsTickerPriceUnchanged);
+    }
+  } else {
+    statsTickerPriceChanges += 1;
+    if (statsTickerPriceChanges % 40 === 0) {
+      console.log("ws ticker price changes: %d", statsTickerPriceChanges);
+    }
+  }
 }
 
 function marketsDiffWs(updates) {
@@ -609,6 +621,13 @@ function onConnected(evt) {
   connectWsBtn.onclick = disconnect;
 }
 
+function updateHeartbeatStatsWs() {
+  statsHeartbeats += 1;
+  if (statsHeartbeats % 10 === 0) {
+    console.log("ws heartbeats: %d", statsHeartbeats);
+  }
+}
+
 function onMessage(evt) {
   const data = JSON.parse(evt.data);
   const [channel, seq] = data;
@@ -656,29 +675,6 @@ function connect() {
   ws.sock.onmessage = onMessage;
 
   onConnecting();
-}
-
-// ## stats helpers
-
-function updateTickerStatsWs(prevPrice, lastPrice) {
-  if (prevPrice === lastPrice) {
-    statsTickerPriceUnchanged += 1;
-    if (statsTickerPriceUnchanged % 400 === 0) {
-      console.log("ws ticker price unchanged: %d", statsTickerPriceUnchanged);
-    }
-  } else {
-    statsTickerPriceChanges += 1;
-    if (statsTickerPriceChanges % 40 === 0) {
-      console.log("ws ticker price changes: %d", statsTickerPriceChanges);
-    }
-  }
-}
-
-function updateHeartbeatStatsWs() {
-  statsHeartbeats += 1;
-  if (statsHeartbeats % 10 === 0) {
-    console.log("ws heartbeats: %d", statsHeartbeats);
-  }
 }
 
 // ## binding it all together
