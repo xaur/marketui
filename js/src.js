@@ -5,7 +5,7 @@
 const marketsTable = document.getElementById("markets-table");
 const marketsTbody = document.getElementById("markets-tbody");
 let marketIdToPriceCell; // Map
-let statsMarketsTableLastUpdated = performance.now();
+let statsMarketsTableLastUpdated;
 
 const watchMarketsBtn = document.getElementById("watch-markets-btn");
 const updateMarketsBtn = document.getElementById("update-markets-btn");
@@ -413,6 +413,8 @@ function createMarketsTable(markets) {
   }
 
   marketIdToPriceCell = priceCellIndex;
+
+  statsMarketsTableLastUpdated = performance.now();
   console.log("markets table created in %.1f ms", performance.now() - start);
 }
 
