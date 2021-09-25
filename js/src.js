@@ -37,20 +37,20 @@ const connectWsBtn = document.getElementById("connect-ws-btn");
 
 // ## endpoints and their state https://docs.poloniex.com/
 
-const tickerEndpoint = {
+function createEndpoint(props) {
+  return Object.assign({ fetching: false, aborter: null }, props);
+}
+
+const tickerEndpoint = createEndpoint({
   name: "ticker",
   url: "https://poloniex.com/public?command=returnTicker",
-  fetching: false,
-  aborter: null,
-};
+});
 
-const booksEndpoint = {
+const booksEndpoint = createEndpoint({
   name: "books",
   url: "https://poloniex.com/public?command=returnOrderBook&currencyPair={pair}&depth={depth}",
-  fetching: false,
-  aborter: null,
   maxDepth: 100,
-};
+});
 
 const ws = {
   url: "wss://api2.poloniex.com",
