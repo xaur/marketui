@@ -10,71 +10,14 @@ function format(template, params) {
   return res;
 }
 
-// ## markets widgets
 
-const marketsTable = document.getElementById("markets-table");
-const marketsTbody = document.getElementById("markets-tbody");
-let marketIdToPriceCell; // Map
-let metMarketsTableLastUpdated;
-
-const watchMarketsBtn = document.getElementById("watch-markets-btn");
-const updateMarketsBtn = document.getElementById("update-markets-btn");
-
-// ## books widgets
-
-const asksWidget = document.getElementById("asks-widget");
-const asksTable = document.getElementById("asks-table");
-const asksTbody = document.getElementById("asks-tbody");
-const bidsWidget = document.getElementById("bids-widget");
-const bidsTable = document.getElementById("bids-table");
-const bidsTbody = document.getElementById("bids-tbody");
-const updateBooksBtn = document.getElementById("update-books-btn");
-
-// ## other widgets
-
-const autoupdateToggle = document.getElementById("autoupdate-toggle");
-const connectWsBtn = document.getElementById("connect-ws-btn");
-
-// ## endpoints and their state https://docs.poloniex.com/
+// ## fetch and endpoint utils
 
 function createEndpoint(props) {
   return Object.assign({ fetching: false, aborter: null }, props);
 }
 
-const tickerEndpoint = createEndpoint({
-  name: "ticker",
-  url: "https://poloniex.com/public?command=returnTicker",
-});
-
-const booksEndpoint = createEndpoint({
-  name: "books",
-  url: "https://poloniex.com/public?command=returnOrderBook&currencyPair={pair}&depth={depth}",
-  maxDepth: 100,
-});
-
-const ws = {
-  url: "wss://api2.poloniex.com",
-  sock: undefined,
-  queue: [],
-};
-let metWsHeartbeats = 0;
-let metWsTickerPriceChanges = 0;
-let metWsTickerPriceUnchanged = 0;
-
-// ## business data state
-
-let markets; // Map
-let selectedMarketId;
-
-// ## endpoint methods
-
 class RequestIgnored extends Error {}
-
-function cancelFetch(endpoint) {
-  if (endpoint.aborter) {
-    endpoint.aborter.abort();
-  }
-}
 
 function asyncFetchJson(endpoint, params) {
   if (endpoint.fetching) {
@@ -103,17 +46,14 @@ function asyncFetchJson(endpoint, params) {
   return promise;
 }
 
-function asyncFetchPoloniex(endpoint, params) {
-  return asyncFetchJson(endpoint, params)
-    .then(apiResp => {
-      if (apiResp.error) {
-        throw new Error("Poloniex API error: " + apiResp.error);
-      }
-      return apiResp;
-    });
+function cancelFetch(endpoint) {
+  if (endpoint.aborter) {
+    endpoint.aborter.abort();
+  }
 }
 
-function handleErrors(e) {
+// suppress errors when request was gracefully skipped or aborted
+function skipFetchCancels(e) {
   if (e instanceof RequestIgnored) {
     return;
   } else if (e.name === "AbortError") {
@@ -124,12 +64,76 @@ function handleErrors(e) {
   }
 }
 
+// ## markets widgets
+
+const marketsTable = document.getElementById("markets-table");
+const marketsTbody = document.getElementById("markets-tbody");
+let marketIdToPriceCell; // Map
+let metMarketsTableLastUpdated;
+
+const watchMarketsBtn = document.getElementById("watch-markets-btn");
+const updateMarketsBtn = document.getElementById("update-markets-btn");
+
+// ## books widgets
+
+const asksWidget = document.getElementById("asks-widget");
+const asksTable = document.getElementById("asks-table");
+const asksTbody = document.getElementById("asks-tbody");
+const bidsWidget = document.getElementById("bids-widget");
+const bidsTable = document.getElementById("bids-table");
+const bidsTbody = document.getElementById("bids-tbody");
+const updateBooksBtn = document.getElementById("update-books-btn");
+
+// ## other widgets
+
+const autoupdateToggle = document.getElementById("autoupdate-toggle");
+const connectWsBtn = document.getElementById("connect-ws-btn");
+
+// ## endpoints and their state https://docs.poloniex.com/
+
+const tickerEndpoint = createEndpoint({
+  name: "ticker",
+  url: "https://poloniex.com/public?command=returnTicker",
+});
+
+const booksEndpoint = createEndpoint({
+  name: "books",
+  url: "https://poloniex.com/public?command=returnOrderBook&currencyPair={pair}&depth={depth}",
+  maxDepth: 100,
+});
+
+const ws = {
+  url: "wss://api2.poloniex.com",
+  sock: undefined,
+  queue: [],
+};
+let metWsHeartbeats = 0;
+let metWsTickerPriceChanges = 0;
+let metWsTickerPriceUnchanged = 0;
+
+// ## business data state
+
+let markets; // Map
+let selectedMarketId;
+
+// ## endpoint methods
+
+function asyncFetchPoloniex(endpoint, params) {
+  return asyncFetchJson(endpoint, params)
+    .then(apiResp => {
+      if (apiResp.error) {
+        throw new Error("Poloniex API error: " + apiResp.error);
+      }
+      return apiResp;
+    });
+}
+
 // ## updater methods
 
 function updaterLoop(updater) {
   updater.fetchPromiseFn()
     .then(updater.updateUi)
-    .catch(handleErrors)
+    .catch(skipFetchCancels)
     .finally(() => {
       if (updater.enabled) { // false prevents from setting new timers
         updater.timer = setTimeout(updaterLoop, updater.interval, updater);
@@ -529,7 +533,7 @@ function asyncUpdateMarketsUi() {
 }
 
 function asyncUpdateMarketsUiNoerr() {
-  return asyncUpdateMarketsUi().catch(handleErrors);
+  return asyncUpdateMarketsUi().catch(skipFetchCancels);
 }
 
 function marketsTableClick(e) {
@@ -586,7 +590,7 @@ const booksUpdater = {
 function asyncUpdateBooksUiNoerr() {
   asyncFetchSelectedBooks()
     .then(updateBooksUi)
-    .catch(handleErrors);
+    .catch(skipFetchCancels);
 }
 
 // ### other UI
