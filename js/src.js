@@ -206,41 +206,14 @@ function bumpWsTickerPriceMetrics(prevPrice, lastPrice) {
 }
 
 
-// ## business data state
+// ## Data model
+
+// ### markets data state
 
 let markets; // Map
 let selectedMarketId;
 
-// ## updater methods
-
-function updaterLoop(updater) {
-  updater.fetchPromiseFn()
-    .then(updater.updateUi)
-    .catch(skipFetchCancels)
-    .finally(() => {
-      if (updater.enabled) { // false prevents from setting new timers
-        updater.timer = setTimeout(updaterLoop, updater.interval, updater);
-      }
-  });
-}
-
-function setUpdaterEnabled(updater, enabled) {
-  updater.enabled = enabled;
-  console.log("%s %s autoupdate every %d ms", enabled ? "starting" : "stopping",
-    updater.desc, updater.interval);
-  if (enabled) {
-    updaterLoop(updater);
-    if (updater.onenable) { updater.onenable(); }
-  } else {
-    clearTimeout(updater.timer);
-    updater.cancel();
-    if (updater.ondisable) { updater.ondisable(); }
-  }
-}
-
-// ## business data methods
-
-// ### markets
+// ### markets data methods
 
 function isMarketId(id) {
   return Number.isInteger(id);
@@ -426,7 +399,7 @@ function asyncFetchMarkets() {
     });
 }
 
-// ### books
+// ### books data methods
 
 function asyncFetchBooks(marketId, depth = booksEndpoint.maxDepth) {
   const m = markets.get(marketId);
@@ -444,6 +417,33 @@ function asyncFetchSelectedBooks() {
     return Promise.reject(new RequestIgnored(reason));
   }
   return asyncFetchBooks(selectedMarketId);
+}
+
+// ### updater methods
+
+function updaterLoop(updater) {
+  updater.fetchPromiseFn()
+    .then(updater.updateUi)
+    .catch(skipFetchCancels)
+    .finally(() => {
+      if (updater.enabled) { // false prevents from setting new timers
+        updater.timer = setTimeout(updaterLoop, updater.interval, updater);
+      }
+  });
+}
+
+function setUpdaterEnabled(updater, enabled) {
+  updater.enabled = enabled;
+  console.log("%s %s autoupdate every %d ms", enabled ? "starting" : "stopping",
+    updater.desc, updater.interval);
+  if (enabled) {
+    updaterLoop(updater);
+    if (updater.onenable) { updater.onenable(); }
+  } else {
+    clearTimeout(updater.timer);
+    updater.cancel();
+    if (updater.ondisable) { updater.ondisable(); }
+  }
 }
 
 // ## UI management
