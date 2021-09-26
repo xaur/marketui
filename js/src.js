@@ -206,31 +206,6 @@ function bumpWsTickerPriceMetrics(prevPrice, lastPrice) {
 }
 
 
-// ## markets widgets
-
-const marketsTable = document.getElementById("markets-table");
-const marketsTbody = document.getElementById("markets-tbody");
-let marketIdToPriceCell; // Map
-let metMarketsTableLastUpdated;
-
-const watchMarketsBtn = document.getElementById("watch-markets-btn");
-const updateMarketsBtn = document.getElementById("update-markets-btn");
-
-// ## books widgets
-
-const asksWidget = document.getElementById("asks-widget");
-const asksTable = document.getElementById("asks-table");
-const asksTbody = document.getElementById("asks-tbody");
-const bidsWidget = document.getElementById("bids-widget");
-const bidsTable = document.getElementById("bids-table");
-const bidsTbody = document.getElementById("bids-tbody");
-const updateBooksBtn = document.getElementById("update-books-btn");
-
-// ## other widgets
-
-const autoupdateToggle = document.getElementById("autoupdate-toggle");
-const connectWsBtn = document.getElementById("connect-ws-btn");
-
 // ## business data state
 
 let markets; // Map
@@ -473,7 +448,17 @@ function asyncFetchSelectedBooks() {
 
 // ## UI management
 
-// ### markets
+// ### markets UI state
+
+const marketsTable = document.getElementById("markets-table");
+const marketsTbody = document.getElementById("markets-tbody");
+let marketIdToPriceCell; // Map
+let metMarketsTableLastUpdated;
+
+const watchMarketsBtn = document.getElementById("watch-markets-btn");
+const updateMarketsBtn = document.getElementById("update-markets-btn");
+
+// ### markets UI methods
 
 function compareByLabel(a, b) {
   if (a.label < b.label) { return -1; }
@@ -564,21 +549,6 @@ function updateMarketsTable(diff) {
   metMarketsTableLastUpdated = now;
 }
 
-function setDocTitle(marketLabel, price) {
-  document.title = price + " " + marketLabel;
-}
-
-function updateDocTitle(diff) {
-  const selMarketChange = diff.changes.get(selectedMarketId);
-  if (selMarketChange) {
-    const priceChange = selMarketChange.last;
-    if (priceChange) {
-      const [o, n] = priceChange;
-      setDocTitle(markets.get(selectedMarketId).label, n);
-    }
-  }
-}
-
 function updateMarketsUi(update) {
   if (update.init) {
     createMarketsTable(update.markets);
@@ -626,7 +596,17 @@ function marketsTableClick(e) {
   asyncUpdateBooksUiNoerr();
 }
 
-// ### books
+// ### books UI state
+
+const asksWidget = document.getElementById("asks-widget");
+const asksTable = document.getElementById("asks-table");
+const asksTbody = document.getElementById("asks-tbody");
+const bidsWidget = document.getElementById("bids-widget");
+const bidsTable = document.getElementById("bids-table");
+const bidsTbody = document.getElementById("bids-tbody");
+const updateBooksBtn = document.getElementById("update-books-btn");
+
+// ### books UI methods
 
 function createTable(tbody, rows, order = [0, 1]) {
   tbody.innerHTML = "";
@@ -672,7 +652,27 @@ function asyncUpdateBooksUiNoerr() {
     .catch(skipFetchCancels);
 }
 
-// ### other UI
+// ### other UI state
+
+const autoupdateToggle = document.getElementById("autoupdate-toggle");
+const connectWsBtn = document.getElementById("connect-ws-btn");
+
+// ### other UI methods
+
+function setDocTitle(marketLabel, price) {
+  document.title = price + " " + marketLabel;
+}
+
+function updateDocTitle(diff) {
+  const selMarketChange = diff.changes.get(selectedMarketId);
+  if (selMarketChange) {
+    const priceChange = selMarketChange.last;
+    if (priceChange) {
+      const [o, n] = priceChange;
+      setDocTitle(markets.get(selectedMarketId).label, n);
+    }
+  }
+}
 
 function autoupdateToggleClick(e) {
   const enable = e.target.checked;
