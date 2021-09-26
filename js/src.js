@@ -11,7 +11,10 @@ function format(template, params) {
 }
 
 
-// ## fetch and endpoint utils
+// ## HTTP endpoint utils
+
+// A wrapper around `fetch` API adding: one request at a time limit,
+// cancellation, JSON decoding, error handling, logging, and perf metrics.
 
 function createEndpoint(props) {
   return Object.assign({ fetching: false, aborter: null }, props);
@@ -65,7 +68,14 @@ function skipFetchCancels(e) {
 }
 
 
-// ## WebSocket utils
+// ## WebSocket endpoint utils
+
+// This wrapper around bare `WebSocket` adds: saved connection URL, message
+// queue, logging, and perf metrics. It is also specialized by encoding and
+// decoding sent/received data to/from JSON.
+//
+// Some ideas borrowed from:
+// https://github.com/decred/dcrdex/blob/d11f1ce9/client/webserver/site/src/js/ws.js
 
 function createWsEndpoint(url) {
   return { url: url, ws: null, queue: [] };
@@ -75,9 +85,6 @@ function callMaybe(fn, arg) {
   if (fn !== undefined) { fn(arg); }
 }
 
-// specialized to JSON sending/receiving
-// some ideas borrowed from
-// https://github.com/decred/dcrdex/blob/d11f1ce9/client/webserver/site/src/js/ws.js
 function openWs(endpoint, handlers) {
   console.time("ws connected");
   console.log("ws connecting to", endpoint.url);
@@ -138,11 +145,12 @@ function closeWs(endpoint) {
 
 // ## Poloniex API state and utils
 
-// Code that deals with and maintains Poloniex's data model and is not too
-// concerned about app's own data model. It must know nothing about app's UI.
+// Code dealing with Poloniex's data model and maintaining its state.
+// It is not too concerned about what data model is used by its calling code.
+// It must know nothing about app's UI.
 // API docs: https://docs.poloniex.com/
 
-// ### Poloniex HTTP API
+// ### Poloniex API / HTTP
 
 const tickerEndpoint = createEndpoint({
   name: "ticker",
@@ -165,7 +173,7 @@ function asyncFetchPoloniex(endpoint, params) {
     });
 }
 
-// ### Poloniex WebSocket API
+// ### Poloniex API / WebSocket
 
 const wsEndpoint = createWsEndpoint("wss://api2.poloniex.com");
 
@@ -178,7 +186,7 @@ function disconnect() {
   cancelFetch(tickerEndpoint);
 }
 
-// #### metrics
+// #### Poloniex API / WebSocket / metrics
 
 let metWsHeartbeats = 0;
 let metWsTickerPriceChanges = 0;
@@ -208,12 +216,19 @@ function bumpWsTickerPriceMetrics(prevPrice, lastPrice) {
 
 // ## Data model
 
-// ### markets data state
+// State and utils for app's own data model. Also and converters to/from
+// Poloniex's data model.
+// Consider this a "normalized" data model that does not care (too much) about
+// exchange specifics and is optimized for app's features (change highlighting,
+// caching, etc).
+// This code must know nothing about the UI (but may define callbacks).
 
-let markets; // Map
-let selectedMarketId;
+// ### Data model / markets / state
 
-// ### markets data methods
+let markets; // Map (Number -> Market)
+let selectedMarketId; // Number
+
+// ### Data model / markets / methods
 
 function isMarketId(id) {
   return Number.isInteger(id);
@@ -399,7 +414,7 @@ function asyncFetchMarkets() {
     });
 }
 
-// ### books data methods
+// ### Data model / books / methods
 
 function asyncFetchBooks(marketId, depth = booksEndpoint.maxDepth) {
   const m = markets.get(marketId);
@@ -419,7 +434,11 @@ function asyncFetchSelectedBooks() {
   return asyncFetchBooks(selectedMarketId);
 }
 
-// ### updater methods
+// ### Data model / Updater / methods
+
+// Updater is essentially a timer that repeatedly calls a function with
+// configurable time interval, can be enabled/disabled, and fires
+// onenable/ondisable events.
 
 function updaterLoop(updater) {
   updater.fetchPromiseFn()
@@ -448,17 +467,17 @@ function setUpdaterEnabled(updater, enabled) {
 
 // ## UI management
 
-// ### markets UI state
+// ### UI / markets / state
 
 const marketsTable = document.getElementById("markets-table");
 const marketsTbody = document.getElementById("markets-tbody");
-let marketIdToPriceCell; // Map
-let metMarketsTableLastUpdated;
+let marketIdToPriceCell; // Map (Number -> HTMLTableCellElement)
+let metMarketsTableLastUpdated; // DOMHighResTimeStamp
 
 const watchMarketsBtn = document.getElementById("watch-markets-btn");
 const updateMarketsBtn = document.getElementById("update-markets-btn");
 
-// ### markets UI methods
+// ### UI / markets / methods
 
 function compareByLabel(a, b) {
   if (a.label < b.label) { return -1; }
@@ -596,7 +615,7 @@ function marketsTableClick(e) {
   asyncUpdateBooksUiNoerr();
 }
 
-// ### books UI state
+// ### UI / books / state
 
 const asksWidget = document.getElementById("asks-widget");
 const asksTable = document.getElementById("asks-table");
@@ -606,7 +625,7 @@ const bidsTable = document.getElementById("bids-table");
 const bidsTbody = document.getElementById("bids-tbody");
 const updateBooksBtn = document.getElementById("update-books-btn");
 
-// ### books UI methods
+// ### UI / books / methods
 
 function createTable(tbody, rows, order = [0, 1]) {
   tbody.innerHTML = "";
@@ -652,12 +671,12 @@ function asyncUpdateBooksUiNoerr() {
     .catch(skipFetchCancels);
 }
 
-// ### other UI state
+// ### UI / other / state
 
 const autoupdateToggle = document.getElementById("autoupdate-toggle");
 const connectWsBtn = document.getElementById("connect-ws-btn");
 
-// ### other UI methods
+// ### UI / other / methods
 
 function setDocTitle(marketLabel, price) {
   document.title = price + " " + marketLabel;
@@ -680,7 +699,7 @@ function autoupdateToggleClick(e) {
   setUpdaterEnabled(booksUpdater, enable);
 }
 
-// ## UI management for WebSocket API
+// ### UI / WebSocket API handling
 
 function onMessage(obj) {
   const [channel, seq] = obj;
@@ -730,7 +749,7 @@ function connect() {
   });
 }
 
-// ## binding it all together
+// ## Putting it all together
 
 function initUi() {
   updateMarketsBtn.disabled = false;
