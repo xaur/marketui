@@ -165,7 +165,7 @@ const booksEndpoint = createEndpoint({
 
 function asyncFetchPoloniex(endpoint, params) {
   return asyncFetchJson(endpoint, params)
-    .then(apiResp => {
+    .then((apiResp) => {
       if (apiResp.error) {
         throw new Error("Poloniex API error: " + apiResp.error);
       }
@@ -403,7 +403,7 @@ function diffAndUpdateMarkets(differ, data) {
 
 function asyncFetchMarkets() {
   return asyncFetchPoloniex(tickerEndpoint)
-    .then(tickerResp => {
+    .then((tickerResp) => {
       if (markets) {
         const diff = diffAndUpdateMarkets(marketsDiffHttp, tickerResp);
         return { init: false, markets: null, diff: diff };
@@ -420,7 +420,7 @@ function asyncFetchBooks(marketId, depth = booksEndpoint.maxDepth) {
   const m = markets.get(marketId);
   const pair = m.base + "_" + m.quote;
   return asyncFetchPoloniex(booksEndpoint, { pair: pair, depth: depth })
-    .then(booksResp => {
+    .then((booksResp) => {
       booksResp.market = m;
       return booksResp;
     });
@@ -607,7 +607,7 @@ function asyncUpdateMarketsUiNoerr() {
 function marketsTableClick(e) {
   const tr = event.target.closest("tr");
   selectedMarketId = marketId(tr.dataset.id);
-  marketsTbody.querySelectorAll(".row-selected").forEach(el =>
+  marketsTbody.querySelectorAll(".row-selected").forEach((el) =>
     el.classList.remove("row-selected"));
   tr.classList.add("row-selected");
   const market = markets.get(selectedMarketId);
@@ -638,7 +638,7 @@ function createTable(tbody, rows, order = [0, 1]) {
 }
 
 function setTickers(table, quote) {
-  table.querySelectorAll("th.quote-ticker").forEach(el => {
+  table.querySelectorAll("th.quote-ticker").forEach((el) => {
     el.firstChild.nodeValue = quote;
   });
 }
@@ -753,12 +753,12 @@ function connect() {
 
 function initUi() {
   updateMarketsBtn.disabled = false;
-  updateMarketsBtn.onclick = (e => asyncUpdateMarketsUiNoerr());
+  updateMarketsBtn.onclick = (e) => asyncUpdateMarketsUiNoerr();
 
-  updateBooksBtn.onclick = (e => asyncUpdateBooksUiNoerr());
+  updateBooksBtn.onclick = (e) => asyncUpdateBooksUiNoerr();
 
   watchMarketsBtn.disabled = false;
-  watchMarketsBtn.onclick = (e => setUpdaterEnabled(marketsUpdater, !marketsUpdater.enabled));
+  watchMarketsBtn.onclick = (e) => setUpdaterEnabled(marketsUpdater, !marketsUpdater.enabled);
   connectWsBtn.disabled = false;
   connectWsBtn.onclick = connect;
   marketsTbody.onclick = marketsTableClick;
