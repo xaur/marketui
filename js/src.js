@@ -610,33 +610,10 @@ function subscribeMarkets() {
   sendWs(wsEndpoint, { "command": "subscribe", "channel": 1002 });
 }
 
-function onDisconnected(evt) {
-  console.log("ws disconnected from", wsEndpoint.url);
-  wsEndpoint.ws = null;
-
-  connectWsBtn.value = "connect ws";
-  connectWsBtn.onclick = connect;
-}
-
 function disconnect() {
   // will throw a null error if closed >1 time, exposing a programming error
   wsEndpoint.ws.close();
   cancelFetch(tickerEndpoint);
-}
-
-function onConnected(evt) {
-  // todo: this timer may never complete if open fails
-  console.timeEnd("ws connected");
-  // copy and reset shared queue to avoid infinite loops when disconnected
-  const oldQueue = wsEndpoint.queue;
-  wsEndpoint.queue = [];
-
-  // drain queue
-  console.log("ws sending %d queued messages", oldQueue.length);
-  for (const obj of oldQueue) { sendWs(wsEndpoint, obj); }
-
-  connectWsBtn.value = "disconnect ws";
-  connectWsBtn.onclick = disconnect;
 }
 
 function bumpWsHeartbeatMetrics() {
@@ -662,11 +639,6 @@ function onMessage(evt) {
   }
 }
 
-function onConnecting() {
-  connectWsBtn.value = "cancel connect ws";
-  connectWsBtn.onclick = disconnect;
-}
-
 function connect() {
   console.log("connect starting");
   if (markets) {
@@ -683,17 +655,43 @@ function connect() {
     });
   }
 
+  // pre-connect
+  connectWsBtn.value = "cancel connect ws";
+  connectWsBtn.onclick = disconnect;
+
   console.time("ws connected");
   console.log("ws connecting to", wsEndpoint.url);
   const ws = new WebSocket(wsEndpoint.url);
   wsEndpoint.ws = ws;
 
-  ws.onerror = (e => console.log("ws error:", e));
-  ws.onclose = onDisconnected;
-  ws.onopen = onConnected;
-  ws.onmessage = onMessage;
+  ws.onerror = (evt) => {
+    console.log("ws error:", evt);
+  };
 
-  onConnecting();
+  ws.onclose = (evt) => {
+    console.log("ws disconnected from", wsEndpoint.url);
+    wsEndpoint.ws = null;
+
+    connectWsBtn.value = "connect ws";
+    connectWsBtn.onclick = connect;
+  };
+
+  ws.onopen = (evt) => {
+    // todo: this timer may never complete if open fails
+    console.timeEnd("ws connected");
+    // copy and reset shared queue to avoid infinite loops when disconnected
+    const oldQueue = wsEndpoint.queue;
+    wsEndpoint.queue = [];
+
+    // drain queue
+    console.log("ws sending %d queued messages", oldQueue.length);
+    for (const obj of oldQueue) { sendWs(wsEndpoint, obj); }
+
+    connectWsBtn.value = "disconnect ws";
+    connectWsBtn.onclick = disconnect;
+  };
+
+  ws.onmessage = onMessage;
 }
 
 // ## binding it all together
