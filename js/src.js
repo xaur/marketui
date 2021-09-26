@@ -136,6 +136,76 @@ function closeWs(endpoint) {
 }
 
 
+// ## Poloniex API state and utils
+
+// Code that deals with and maintains Poloniex's data model and is not too
+// concerned about app's own data model. It must know nothing about app's UI.
+// API docs: https://docs.poloniex.com/
+
+// ### Poloniex HTTP API
+
+const tickerEndpoint = createEndpoint({
+  name: "ticker",
+  url: "https://poloniex.com/public?command=returnTicker",
+});
+
+const booksEndpoint = createEndpoint({
+  name: "books",
+  url: "https://poloniex.com/public?command=returnOrderBook&currencyPair={pair}&depth={depth}",
+  maxDepth: 100,
+});
+
+function asyncFetchPoloniex(endpoint, params) {
+  return asyncFetchJson(endpoint, params)
+    .then(apiResp => {
+      if (apiResp.error) {
+        throw new Error("Poloniex API error: " + apiResp.error);
+      }
+      return apiResp;
+    });
+}
+
+// ### Poloniex WebSocket API
+
+const wsEndpoint = createWsEndpoint("wss://api2.poloniex.com");
+
+function subscribeMarketsWs() {
+  sendWs(wsEndpoint, { "command": "subscribe", "channel": 1002 });
+}
+
+function disconnect() {
+  closeWs(wsEndpoint);
+  cancelFetch(tickerEndpoint);
+}
+
+// #### metrics
+
+let metWsHeartbeats = 0;
+let metWsTickerPriceChanges = 0;
+let metWsTickerPriceUnchanged = 0;
+
+function bumpWsHeartbeatMetrics() {
+  metWsHeartbeats += 1;
+  if (metWsHeartbeats % 10 === 0) {
+    console.log("ws heartbeats: %d", metWsHeartbeats);
+  }
+}
+
+function bumpWsTickerPriceMetrics(prevPrice, lastPrice) {
+  if (prevPrice === lastPrice) {
+    metWsTickerPriceUnchanged += 1;
+    if (metWsTickerPriceUnchanged % 400 === 0) {
+      console.log("ws ticker price unchanged: %d", metWsTickerPriceUnchanged);
+    }
+  } else {
+    metWsTickerPriceChanges += 1;
+    if (metWsTickerPriceChanges % 40 === 0) {
+      console.log("ws ticker price changes: %d", metWsTickerPriceChanges);
+    }
+  }
+}
+
+
 // ## markets widgets
 
 const marketsTable = document.getElementById("markets-table");
@@ -161,41 +231,10 @@ const updateBooksBtn = document.getElementById("update-books-btn");
 const autoupdateToggle = document.getElementById("autoupdate-toggle");
 const connectWsBtn = document.getElementById("connect-ws-btn");
 
-// ## endpoints and their state https://docs.poloniex.com/
-
-const tickerEndpoint = createEndpoint({
-  name: "ticker",
-  url: "https://poloniex.com/public?command=returnTicker",
-});
-
-const booksEndpoint = createEndpoint({
-  name: "books",
-  url: "https://poloniex.com/public?command=returnOrderBook&currencyPair={pair}&depth={depth}",
-  maxDepth: 100,
-});
-
-const wsEndpoint = createWsEndpoint("wss://api2.poloniex.com");
-
-let metWsHeartbeats = 0;
-let metWsTickerPriceChanges = 0;
-let metWsTickerPriceUnchanged = 0;
-
 // ## business data state
 
 let markets; // Map
 let selectedMarketId;
-
-// ## endpoint methods
-
-function asyncFetchPoloniex(endpoint, params) {
-  return asyncFetchJson(endpoint, params)
-    .then(apiResp => {
-      if (apiResp.error) {
-        throw new Error("Poloniex API error: " + apiResp.error);
-      }
-      return apiResp;
-    });
-}
 
 // ## updater methods
 
@@ -321,20 +360,6 @@ function marketsDiffHttp(tickerResp) {
 
   console.log("markets diff computed in %.1f ms", performance.now() - start);
   return diffOrNull(changes, additions, removals);
-}
-
-function bumpWsTickerPriceMetrics(prevPrice, lastPrice) {
-  if (prevPrice === lastPrice) {
-    metWsTickerPriceUnchanged += 1;
-    if (metWsTickerPriceUnchanged % 400 === 0) {
-      console.log("ws ticker price unchanged: %d", metWsTickerPriceUnchanged);
-    }
-  } else {
-    metWsTickerPriceChanges += 1;
-    if (metWsTickerPriceChanges % 40 === 0) {
-      console.log("ws ticker price changes: %d", metWsTickerPriceChanges);
-    }
-  }
 }
 
 function marketsDiffWs(updates) {
@@ -655,23 +680,7 @@ function autoupdateToggleClick(e) {
   setUpdaterEnabled(booksUpdater, enable);
 }
 
-// ## WebSocket handling and UI management
-
-function subscribeMarkets() {
-  sendWs(wsEndpoint, { "command": "subscribe", "channel": 1002 });
-}
-
-function disconnect() {
-  closeWs(wsEndpoint);
-  cancelFetch(tickerEndpoint);
-}
-
-function bumpWsHeartbeatMetrics() {
-  metWsHeartbeats += 1;
-  if (metWsHeartbeats % 10 === 0) {
-    console.log("ws heartbeats: %d", metWsHeartbeats);
-  }
-}
+// ## UI management for WebSocket API
 
 function onMessage(obj) {
   const [channel, seq] = obj;
@@ -692,14 +701,14 @@ function connect() {
   console.log("connect starting");
   if (markets) {
     console.log("reusing existing markets data");
-    subscribeMarkets();
+    subscribeMarketsWs();
   } else {
     console.log("fetching markets data for the first time");
     asyncUpdateMarketsUi().then(() => {
       // todo: if markets promise gets rejected, subscription never happens
       if (markets) {
         // only subscribe to updates if markets db was populated
-        subscribeMarkets();
+        subscribeMarketsWs();
       }
     });
   }
