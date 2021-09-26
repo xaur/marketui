@@ -102,9 +102,9 @@ const booksEndpoint = createEndpoint({
   maxDepth: 100,
 });
 
-const ws = {
+const wsEndpoint = {
   url: "wss://api2.poloniex.com",
-  sock: undefined,
+  ws: null,
   queue: [],
 };
 let metWsHeartbeats = 0;
@@ -157,17 +157,20 @@ function setUpdaterEnabled(updater, enabled) {
 
 // ## WebSocket helpers
 
-function wsSend(data) {
-  if (!ws.sock || ws.sock.readyState !== WebSocket.OPEN) {
-    ws.queue.push(data);
-    if (ws.queue.length > 5) {
-      console.warn("ws queue size is now", ws.queue.length);
+// inspired by
+// https://github.com/decred/dcrdex/blob/d11f1ce9/client/webserver/site/src/js/ws.js
+function sendWs(endpoint, obj) {
+  const { ws, queue } = endpoint;
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    queue.push(obj);
+    if (queue.length > 5) {
+      console.warn("ws queue size is now", queue.length);
     }
     return;
   }
-  const message = JSON.stringify(data);
+  const message = JSON.stringify(obj);
   console.log("ws sending:", message);
-  ws.sock.send(message);
+  ws.send(message);
 }
 
 // ## business data methods
@@ -604,29 +607,33 @@ function autoupdateToggleClick(e) {
 // ## WebSocket handling and UI management
 
 function subscribeMarkets() {
-  wsSend({ "command": "subscribe", "channel": 1002 });
+  sendWs(wsEndpoint, { "command": "subscribe", "channel": 1002 });
 }
 
 function onDisconnected(evt) {
-  console.log("ws disconnected from", ws.url);
-  ws.sock = null;
+  console.log("ws disconnected from", wsEndpoint.url);
+  wsEndpoint.ws = null;
+
   connectWsBtn.value = "connect ws";
   connectWsBtn.onclick = connect;
 }
 
 function disconnect() {
-  ws.sock.close();
+  // will throw a null error if closed >1 time, exposing a programming error
+  wsEndpoint.ws.close();
   cancelFetch(tickerEndpoint);
 }
 
 function onConnected(evt) {
+  // todo: this timer may never complete if open fails
   console.timeEnd("ws connected");
-  console.log("ws sending %d queued messages", ws.queue.length);
   // copy and reset shared queue to avoid infinite loops when disconnected
-  const queue = ws.queue;
-  ws.queue = [];
+  const oldQueue = wsEndpoint.queue;
+  wsEndpoint.queue = [];
 
-  for (const req of queue) { wsSend(req); } // drain queue
+  // drain queue
+  console.log("ws sending %d queued messages", oldQueue.length);
+  for (const obj of oldQueue) { sendWs(wsEndpoint, obj); }
 
   connectWsBtn.value = "disconnect ws";
   connectWsBtn.onclick = disconnect;
@@ -640,8 +647,8 @@ function bumpWsHeartbeatMetrics() {
 }
 
 function onMessage(evt) {
-  const data = JSON.parse(evt.data);
-  const [channel, seq] = data;
+  const obj = JSON.parse(evt.data);
+  const [channel, seq] = obj;
   if (channel === 1010) {
     bumpWsHeartbeatMetrics();
   } else if (channel === 1002) {
@@ -649,9 +656,9 @@ function onMessage(evt) {
       console.log("ws ticker subscription server ack");
       return;
     }
-    diffAndUpdateMarketsUi(marketsDiffWs, data);
+    diffAndUpdateMarketsUi(marketsDiffWs, obj);
   } else {
-    console.warn("received data we didn't subscribe for:", JSON.stringify(data));
+    console.warn("received data we didn't subscribe for:", JSON.stringify(obj));
   }
 }
 
@@ -677,13 +684,14 @@ function connect() {
   }
 
   console.time("ws connected");
-  console.log("ws connecting to", ws.url);
-  ws.sock = new WebSocket(ws.url);
+  console.log("ws connecting to", wsEndpoint.url);
+  const ws = new WebSocket(wsEndpoint.url);
+  wsEndpoint.ws = ws;
 
-  ws.sock.onerror = (e => console.log("ws error:", e));
-  ws.sock.onclose = onDisconnected;
-  ws.sock.onopen = onConnected;
-  ws.sock.onmessage = onMessage;
+  ws.onerror = (e => console.log("ws error:", e));
+  ws.onclose = onDisconnected;
+  ws.onopen = onConnected;
+  ws.onmessage = onMessage;
 
   onConnecting();
 }
