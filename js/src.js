@@ -64,6 +64,78 @@ function skipFetchCancels(e) {
   }
 }
 
+
+// ## WebSocket utils
+
+function createWsEndpoint(url) {
+  return { url: url, ws: null, queue: [] };
+}
+
+function callMaybe(fn, arg) {
+  if (fn !== undefined) { fn(arg); }
+}
+
+// specialized to JSON sending/receiving
+// some ideas borrowed from
+// https://github.com/decred/dcrdex/blob/d11f1ce9/client/webserver/site/src/js/ws.js
+function openWs(endpoint, handlers) {
+  console.time("ws connected");
+  console.log("ws connecting to", endpoint.url);
+  const ws = new WebSocket(endpoint.url);
+
+  ws.onerror = (evt) => {
+    console.log("ws error:", evt);
+    callMaybe(handlers.onerror, evt);
+  };
+
+  ws.onclose = (evt) => {
+    console.log("ws disconnected from", endpoint.url);
+    endpoint.ws = null;
+    callMaybe(handlers.onclose, evt);
+  };
+
+  ws.onopen = (evt) => {
+    // todo: this timer may never complete if open fails
+    console.timeEnd("ws connected");
+    // copy and reset shared queue to avoid infinite loops when disconnected
+    const oldQueue = endpoint.queue;
+    endpoint.queue = [];
+
+    // drain queue
+    console.log("ws sending %d queued messages", oldQueue.length);
+    for (const obj of oldQueue) { sendWs(endpoint, obj); }
+
+    callMaybe(handlers.onopen, evt);
+  };
+
+  ws.onmessage = (evt) => {
+    const obj = JSON.parse(evt.data);
+    callMaybe(handlers.onmessage, obj);
+  };
+
+  endpoint.ws = ws;
+}
+
+function sendWs(endpoint, obj) {
+  const { ws, queue } = endpoint;
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    queue.push(obj);
+    if (queue.length > 5) {
+      console.warn("ws queue size is now", queue.length);
+    }
+    return;
+  }
+  const message = JSON.stringify(obj);
+  console.log("ws sending:", message);
+  ws.send(message);
+}
+
+function closeWs(endpoint) {
+  // will throw a null error if closed >1 time, exposing a programming error
+  endpoint.ws.close();
+}
+
+
 // ## markets widgets
 
 const marketsTable = document.getElementById("markets-table");
@@ -102,11 +174,8 @@ const booksEndpoint = createEndpoint({
   maxDepth: 100,
 });
 
-const wsEndpoint = {
-  url: "wss://api2.poloniex.com",
-  ws: null,
-  queue: [],
-};
+const wsEndpoint = createWsEndpoint("wss://api2.poloniex.com");
+
 let metWsHeartbeats = 0;
 let metWsTickerPriceChanges = 0;
 let metWsTickerPriceUnchanged = 0;
@@ -153,24 +222,6 @@ function setUpdaterEnabled(updater, enabled) {
     updater.cancel();
     if (updater.ondisable) { updater.ondisable(); }
   }
-}
-
-// ## WebSocket helpers
-
-// inspired by
-// https://github.com/decred/dcrdex/blob/d11f1ce9/client/webserver/site/src/js/ws.js
-function sendWs(endpoint, obj) {
-  const { ws, queue } = endpoint;
-  if (!ws || ws.readyState !== WebSocket.OPEN) {
-    queue.push(obj);
-    if (queue.length > 5) {
-      console.warn("ws queue size is now", queue.length);
-    }
-    return;
-  }
-  const message = JSON.stringify(obj);
-  console.log("ws sending:", message);
-  ws.send(message);
 }
 
 // ## business data methods
@@ -611,8 +662,7 @@ function subscribeMarkets() {
 }
 
 function disconnect() {
-  // will throw a null error if closed >1 time, exposing a programming error
-  wsEndpoint.ws.close();
+  closeWs(wsEndpoint);
   cancelFetch(tickerEndpoint);
 }
 
@@ -623,8 +673,7 @@ function bumpWsHeartbeatMetrics() {
   }
 }
 
-function onMessage(evt) {
-  const obj = JSON.parse(evt.data);
+function onMessage(obj) {
   const [channel, seq] = obj;
   if (channel === 1010) {
     bumpWsHeartbeatMetrics();
@@ -655,43 +704,21 @@ function connect() {
     });
   }
 
-  // pre-connect
+  // pre-open
   connectWsBtn.value = "cancel connect ws";
   connectWsBtn.onclick = disconnect;
 
-  console.time("ws connected");
-  console.log("ws connecting to", wsEndpoint.url);
-  const ws = new WebSocket(wsEndpoint.url);
-  wsEndpoint.ws = ws;
-
-  ws.onerror = (evt) => {
-    console.log("ws error:", evt);
-  };
-
-  ws.onclose = (evt) => {
-    console.log("ws disconnected from", wsEndpoint.url);
-    wsEndpoint.ws = null;
-
-    connectWsBtn.value = "connect ws";
-    connectWsBtn.onclick = connect;
-  };
-
-  ws.onopen = (evt) => {
-    // todo: this timer may never complete if open fails
-    console.timeEnd("ws connected");
-    // copy and reset shared queue to avoid infinite loops when disconnected
-    const oldQueue = wsEndpoint.queue;
-    wsEndpoint.queue = [];
-
-    // drain queue
-    console.log("ws sending %d queued messages", oldQueue.length);
-    for (const obj of oldQueue) { sendWs(wsEndpoint, obj); }
-
-    connectWsBtn.value = "disconnect ws";
-    connectWsBtn.onclick = disconnect;
-  };
-
-  ws.onmessage = onMessage;
+  openWs(wsEndpoint, {
+    onclose: () => {
+      connectWsBtn.value = "connect ws";
+      connectWsBtn.onclick = connect;
+    },
+    onopen: () => {
+      connectWsBtn.value = "disconnect ws";
+      connectWsBtn.onclick = disconnect;
+    },
+    onmessage: onMessage
+  });
 }
 
 // ## binding it all together
