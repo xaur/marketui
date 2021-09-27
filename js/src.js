@@ -668,7 +668,7 @@ const booksUpdater = {
 };
 
 function asyncUpdateBooksUiNoerr() {
-  asyncFetchSelectedBooks()
+  return asyncFetchSelectedBooks()
     .then(updateBooksUi)
     .catch(skipFetchCancels);
 }
