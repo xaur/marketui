@@ -440,9 +440,7 @@ function asyncFetchSelectedBooks() {
 // onenable/ondisable events.
 
 function updaterLoop(updater) {
-  updater.fetchPromiseFn()
-    .then(updater.updateUi)
-    .catch(skipFetchCancels)
+  updater.promiseFn()
     .finally(() => {
       // false prevents from setting new timers
       if (updater.enabled) {
@@ -589,19 +587,16 @@ const marketsUpdater = {
   enabled: false,
   interval: 10000,
   timer: null,
-  fetchPromiseFn: asyncFetchMarkets,
+  promiseFn: asyncUpdateMarketsUi,
   cancel: () => cancelFetch(tickerEndpoint),
-  updateUi: updateMarketsUi,
   onenable: () => watchMarketsBtn.value = "unwatch http",
   ondisable: () => watchMarketsBtn.value = "watch http",
 };
 
 function asyncUpdateMarketsUi() {
-  return asyncFetchMarkets().then(updateMarketsUi);
-}
-
-function asyncUpdateMarketsUiNoerr() {
-  return asyncUpdateMarketsUi().catch(skipFetchCancels);
+  return asyncFetchMarkets()
+    .then(updateMarketsUi)
+    .catch(skipFetchCancels);
 }
 
 function marketsTableClick(e) {
@@ -612,7 +607,7 @@ function marketsTableClick(e) {
   tr.classList.add("row-selected");
   const market = markets.get(selectedMarketId);
   setDocTitle(market.label, market.last);
-  asyncUpdateBooksUiNoerr();
+  asyncUpdateBooksUi();
 }
 
 // ### UI / books / state
@@ -660,14 +655,13 @@ const booksUpdater = {
   enabled: false,
   interval: 3000,
   timer: null,
-  fetchPromiseFn: asyncFetchSelectedBooks,
+  promiseFn: asyncUpdateBooksUi,
   cancel: () => cancelFetch(booksEndpoint),
-  updateUi: updateBooksUi,
   onenable: null,
   ondisable: null,
 };
 
-function asyncUpdateBooksUiNoerr() {
+function asyncUpdateBooksUi() {
   return asyncFetchSelectedBooks()
     .then(updateBooksUi)
     .catch(skipFetchCancels);
@@ -756,11 +750,11 @@ function connect() {
 function initUi() {
   updateMarketsBtn.disabled = false;
   updateMarketsBtn.onclick = (e) => {
-    asyncUpdateMarketsUiNoerr();
+    asyncUpdateMarketsUi();
   };
 
   updateBooksBtn.onclick = (e) => {
-    asyncUpdateBooksUiNoerr();
+    asyncUpdateBooksUi();
   };
 
   watchMarketsBtn.disabled = false;
