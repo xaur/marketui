@@ -436,8 +436,11 @@ function asyncFetchSelectedBooks() {
 // ### Data model / Updater / methods
 
 // Updater is essentially a timer that repeatedly calls a function with
-// configurable time interval, can be enabled/disabled, and fires
-// onenable/ondisable events.
+// configurable time interval and can be enabled/disabled.
+
+function createUpdater(props) {
+  return Object.assign({ enabled: false, timer: null }, props);
+}
 
 function updaterLoop(updater) {
   updater.promiseFn()
@@ -453,14 +456,12 @@ function setUpdaterEnabled(updater, enabled) {
   updater.enabled = enabled;
   console.log(
     "%s %s autoupdate every %d ms",
-    enabled ? "starting" : "stopping", updater.desc, updater.interval);
+    enabled ? "starting" : "stopping", updater.name, updater.interval);
   if (enabled) {
     updaterLoop(updater);
-    if (updater.onenable) { updater.onenable(); }
   } else {
     clearTimeout(updater.timer);
     updater.cancel();
-    if (updater.ondisable) { updater.ondisable(); }
   }
 }
 
@@ -581,16 +582,12 @@ function diffAndUpdateMarketsUi(differ, data) {
   }
 }
 
-const marketsUpdater = {
-  desc: "markets",
-  enabled: false,
+const marketsUpdater = createUpdater({
+  name: "markets",
   interval: 10000,
-  timer: null,
   promiseFn: asyncUpdateMarketsUi,
   cancel: () => cancelFetch(tickerEndpoint),
-  onenable: null,
-  ondisable: null,
-};
+});
 
 function asyncUpdateMarketsUi() {
   return asyncFetchMarkets()
@@ -649,16 +646,12 @@ function updateBooksUi(books) {
   updateBooksBtn.disabled = false;
 }
 
-const booksUpdater = {
-  desc: "books",
-  enabled: false,
+const booksUpdater = createUpdater({
+  name: "books",
   interval: 3000,
-  timer: null,
   promiseFn: asyncUpdateBooksUi,
   cancel: () => cancelFetch(booksEndpoint),
-  onenable: null,
-  ondisable: null,
-};
+});
 
 function asyncUpdateBooksUi() {
   return asyncFetchSelectedBooks()
