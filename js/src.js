@@ -43,16 +43,15 @@ function asyncFetchJson(endpoint, params) {
       }
     })
     .finally(() => {
-      console.log("%s request took %d ms", endpoint.name, performance.now() - start);
+      console.log("%s request took %d ms",
+                  endpoint.name, performance.now() - start);
       endpoint.fetching = false;
     });
   return promise;
 }
 
 function cancelFetch(endpoint) {
-  if (endpoint.aborter) {
-    endpoint.aborter.abort();
-  }
+  if (endpoint.aborter) { endpoint.aborter.abort(); }
 }
 
 // suppress errors when request was gracefully skipped or aborted
@@ -237,7 +236,7 @@ function isMarketId(id) {
 function marketId(str) {
   const i = Number.parseInt(str);
   if (!isMarketId(i)) {
-    throw new Error("not a market id: " + str)
+    throw new Error("not a market id: " + str);
   }
   return i;
 }
@@ -445,16 +444,18 @@ function updaterLoop(updater) {
     .then(updater.updateUi)
     .catch(skipFetchCancels)
     .finally(() => {
-      if (updater.enabled) { // false prevents from setting new timers
+      // false prevents from setting new timers
+      if (updater.enabled) {
         updater.timer = setTimeout(updaterLoop, updater.interval, updater);
       }
-  });
+    });
 }
 
 function setUpdaterEnabled(updater, enabled) {
   updater.enabled = enabled;
-  console.log("%s %s autoupdate every %d ms", enabled ? "starting" : "stopping",
-    updater.desc, updater.interval);
+  console.log(
+    "%s %s autoupdate every %d ms",
+    enabled ? "starting" : "stopping", updater.desc, updater.interval);
   if (enabled) {
     updaterLoop(updater);
     if (updater.onenable) { updater.onenable(); }
@@ -499,7 +500,7 @@ function createMarketsTable(markets) {
       row.classList.add("inactive");
     }
     row.insertCell().appendChild(document.createTextNode(market.label));
-    const td2 = row.insertCell()
+    const td2 = row.insertCell();
     td2.appendChild(document.createTextNode(market.last));
     priceCellIndex.set(market.id, td2);
   }
@@ -561,10 +562,9 @@ function updateMarketsTable(diff) {
   }
 
   const now = performance.now();
-  console.log("markets table updated in %.1f ms with %d changes, "
-    + "%d ms since last update", (now - updateStart), changes.size,
-    (now - metMarketsTableLastUpdated),
-  );
+  console.log(
+    "markets table updated in %.1f ms with %d changes, %d ms since last update",
+    (now - updateStart), changes.size, (now - metMarketsTableLastUpdated));
   metMarketsTableLastUpdated = now;
 }
 
@@ -607,8 +607,8 @@ function asyncUpdateMarketsUiNoerr() {
 function marketsTableClick(e) {
   const tr = event.target.closest("tr");
   selectedMarketId = marketId(tr.dataset.id);
-  marketsTbody.querySelectorAll(".row-selected").forEach((el) =>
-    el.classList.remove("row-selected"));
+  marketsTbody.querySelectorAll(".row-selected")
+    .forEach((el) => el.classList.remove("row-selected"));
   tr.classList.add("row-selected");
   const market = markets.get(selectedMarketId);
   setDocTitle(market.label, market.last);
@@ -632,15 +632,17 @@ function createTable(tbody, rows, order = [0, 1]) {
   for (const row of rows) {
     const tr = tbody.insertRow();
     for (const ci of order) {
-      tr.insertCell().appendChild(document.createTextNode(parseFloat(row[ci]).toFixed(8)));
+      tr.insertCell().appendChild(
+        document.createTextNode(parseFloat(row[ci]).toFixed(8)));
     }
   }
 }
 
 function setTickers(table, quote) {
-  table.querySelectorAll("th.quote-ticker").forEach((el) => {
-    el.firstChild.nodeValue = quote;
-  });
+  table.querySelectorAll("th.quote-ticker")
+    .forEach((el) => {
+      el.firstChild.nodeValue = quote;
+    });
 }
 
 function updateBooksUi(books) {
@@ -745,7 +747,7 @@ function connect() {
       connectWsBtn.value = "disconnect ws";
       connectWsBtn.onclick = disconnect;
     },
-    onmessage: onMessage
+    onmessage: onMessage,
   });
 }
 
@@ -753,12 +755,18 @@ function connect() {
 
 function initUi() {
   updateMarketsBtn.disabled = false;
-  updateMarketsBtn.onclick = (e) => asyncUpdateMarketsUiNoerr();
+  updateMarketsBtn.onclick = (e) => {
+    asyncUpdateMarketsUiNoerr();
+  };
 
-  updateBooksBtn.onclick = (e) => asyncUpdateBooksUiNoerr();
+  updateBooksBtn.onclick = (e) => {
+    asyncUpdateBooksUiNoerr();
+  };
 
   watchMarketsBtn.disabled = false;
-  watchMarketsBtn.onclick = (e) => setUpdaterEnabled(marketsUpdater, !marketsUpdater.enabled);
+  watchMarketsBtn.onclick = (e) => {
+    setUpdaterEnabled(marketsUpdater, !marketsUpdater.enabled);
+  };
   connectWsBtn.disabled = false;
   connectWsBtn.onclick = connect;
   marketsTbody.onclick = marketsTableClick;
