@@ -473,7 +473,6 @@ const marketsTbody = document.getElementById("markets-tbody");
 let marketIdToPriceCell; // Map (Number -> HTMLTableCellElement)
 let metMarketsTableLastUpdated; // DOMHighResTimeStamp
 
-const watchMarketsBtn = document.getElementById("watch-markets-btn");
 const updateMarketsBtn = document.getElementById("update-markets-btn");
 
 // ### UI / markets / methods
@@ -589,8 +588,8 @@ const marketsUpdater = {
   timer: null,
   promiseFn: asyncUpdateMarketsUi,
   cancel: () => cancelFetch(tickerEndpoint),
-  onenable: () => watchMarketsBtn.value = "unwatch http",
-  ondisable: () => watchMarketsBtn.value = "watch http",
+  onenable: null,
+  ondisable: null,
 };
 
 function asyncUpdateMarketsUi() {
@@ -757,10 +756,6 @@ function initUi() {
     asyncUpdateBooksUi();
   };
 
-  watchMarketsBtn.disabled = false;
-  watchMarketsBtn.onclick = (e) => {
-    setUpdaterEnabled(marketsUpdater, !marketsUpdater.enabled);
-  };
   connectWsBtn.disabled = false;
   connectWsBtn.onclick = connect;
   marketsTbody.onclick = marketsTableClick;
