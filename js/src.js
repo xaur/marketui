@@ -109,6 +109,7 @@ function resetCloseTimer(endpoint, delay) {
 }
 
 function openWs(endpoint) {
+  callMaybe(endpoint.onpreopen);
   console.time("ws connected");
   console.log("ws connecting to", endpoint.url);
   const ws = new WebSocket(endpoint.url);
@@ -784,12 +785,6 @@ function onMessage(obj) {
 }
 
 function connect() {
-  // pre-open
-  // todo: move to preconnect handler, else the button will not change if
-  // something else initiates WS connection
-  connectWsBtn.value = "cancel connect ws";
-  connectWsBtn.onclick = disconnect;
-
   console.log("ws subscribing to market updates");
   if (markets) {
     console.log("reusing existing markets data");
@@ -821,6 +816,10 @@ function initUi() {
     asyncUpdateBooksUi();
   };
 
+  wsEndpoint.onpreopen = () => {
+    connectWsBtn.value = "cancel connect ws";
+    connectWsBtn.onclick = disconnect;
+  };
   wsEndpoint.onclose = () => {
     connectWsBtn.value = "connect ws";
     connectWsBtn.onclick = connect;
