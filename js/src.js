@@ -73,8 +73,11 @@ function skipFetchCancels(e) {
 // queue, logging, and perf metrics. It is also specialized by encoding and
 // decoding sent/received data to/from JSON.
 //
-// WebSocket will be automatically closed after `noSendTimeout` ms of no
-// outgoing messages. The default is 60 seconds (60,000 ms). Use 0 to disable
+// It may take a whole second to open a WebSocket. As a balance between poor UX
+// from waiting for connection, and keeping an open unused connection (possibly
+// wasting traffic), the socket will be opened on demand and stay open for 60
+// seconds. If no outgoing messages are sent in this interval, it will be
+// closed. The timeout is controlled by `noSendTimeout`. Set to `0` to disable
 // auto-closing (it may still be closed for other reasons).
 //
 // Some ideas borrowed from:
@@ -105,14 +108,14 @@ function resetCloseTimer(endpoint, delay) {
   }
 }
 
-function openWs(endpoint, handlers) {
+function openWs(endpoint) {
   console.time("ws connected");
   console.log("ws connecting to", endpoint.url);
   const ws = new WebSocket(endpoint.url);
 
   ws.onerror = (evt) => {
     console.log("ws error:", evt);
-    callMaybe(handlers.onerror, evt);
+    callMaybe(endpoint.onerror, evt);
   };
 
   // clean up any endpoint state here
@@ -124,7 +127,7 @@ function openWs(endpoint, handlers) {
     // if current closing was not initiated by the auto-close timeout, the
     // latter will do an extra closeWs(). Clear the timeout to prevent that.
     resetCloseTimer(endpoint, 0);
-    callMaybe(handlers.onclose, evt);
+    callMaybe(endpoint.onclose, evt);
   };
 
   ws.onopen = (evt) => {
@@ -135,17 +138,18 @@ function openWs(endpoint, handlers) {
     endpoint.queue = [];
 
     // drain queue
+    // todo: maybe drop messages that are no longer valid (e.g. duplicates)
     console.log("ws sending %d queued messages", oldQueue.length);
     for (const obj of oldQueue) { sendWs(endpoint, obj); }
     
     resetCloseTimer(endpoint, endpoint.noSendTimeout);
 
-    callMaybe(handlers.onopen, evt);
+    callMaybe(endpoint.onopen, evt);
   };
 
   ws.onmessage = (evt) => {
     const obj = JSON.parse(evt.data);
-    callMaybe(handlers.onmessage, obj);
+    callMaybe(endpoint.onmessage, obj);
   };
 
   endpoint.ws = ws;
@@ -158,6 +162,7 @@ function sendWs(endpoint, obj) {
     if (queue.length > 5) {
       console.warn("ws queue size is now", queue.length);
     }
+    openWs(endpoint);
     return;
   }
   const message = JSON.stringify(obj);
@@ -779,7 +784,13 @@ function onMessage(obj) {
 }
 
 function connect() {
-  console.log("connect starting");
+  // pre-open
+  // todo: move to preconnect handler, else the button will not change if
+  // something else initiates WS connection
+  connectWsBtn.value = "cancel connect ws";
+  connectWsBtn.onclick = disconnect;
+
+  console.log("ws subscribing to market updates");
   if (markets) {
     console.log("reusing existing markets data");
     subscribeMarketsWs();
@@ -796,22 +807,6 @@ function connect() {
       }
     });
   }
-
-  // pre-open
-  connectWsBtn.value = "cancel connect ws";
-  connectWsBtn.onclick = disconnect;
-
-  openWs(wsEndpoint, {
-    onclose: () => {
-      connectWsBtn.value = "connect ws";
-      connectWsBtn.onclick = connect;
-    },
-    onopen: () => {
-      connectWsBtn.value = "disconnect ws";
-      connectWsBtn.onclick = disconnect;
-    },
-    onmessage: onMessage,
-  });
 }
 
 // ## Putting it all together
@@ -826,8 +821,19 @@ function initUi() {
     asyncUpdateBooksUi();
   };
 
+  wsEndpoint.onclose = () => {
+    connectWsBtn.value = "connect ws";
+    connectWsBtn.onclick = connect;
+  };
+  wsEndpoint.onopen = () => {
+    connectWsBtn.value = "disconnect ws";
+    connectWsBtn.onclick = disconnect;
+  };
+  wsEndpoint.onmessage = onMessage;
+
   connectWsBtn.disabled = false;
   connectWsBtn.onclick = connect;
+
   marketsTbody.onclick = marketsTableClick;
 
   autoupdateToggle.onclick = autoupdateToggleClick;
