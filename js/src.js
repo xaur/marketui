@@ -433,35 +433,41 @@ function asyncFetchSelectedBooks() {
   return asyncFetchBooks(selectedMarketId);
 }
 
-// ### Data model / Updater / methods
+// ### Data model / PromiseLoop / methods
 
-// Updater is essentially a timer that repeatedly calls a function with
-// configurable time interval and can be enabled/disabled.
+// `PromiseLoop` repeatedly calls a function and is similar to `setInterval`,
+// with notable differences:
+//
+// - the function must return a `Promise`
+// - you must provide a `cancel` function that cancels the operation
+// - the loop can be enabled or disabled
+// - wait `interval` begins after the function call _completes_, in contrast
+//   with `setInterval` where the delay starts immediately after the call
+//   _starts_ (so it's fine if the call takes longer than `interval`)
 
-function createUpdater(props) {
+function createPromiseLoop(props) {
   return Object.assign({ enabled: false, timer: null }, props);
 }
 
-function updaterLoop(updater) {
-  updater.promiseFn()
+function promiseLoop(loop) {
+  loop.promiseFn()
     .finally(() => {
       // false prevents from setting new timers
-      if (updater.enabled) {
-        updater.timer = setTimeout(updaterLoop, updater.interval, updater);
+      if (loop.enabled) {
+        loop.timer = setTimeout(promiseLoop, loop.interval, loop);
       }
     });
 }
 
-function setUpdaterEnabled(updater, enabled) {
-  updater.enabled = enabled;
-  console.log(
-    "%s %s autoupdate every %d ms",
-    enabled ? "starting" : "stopping", updater.name, updater.interval);
+function setPromiseLoopEnabled(loop, enabled) {
+  loop.enabled = enabled;
+  console.log("%s %s every %d ms",
+              enabled ? "starting" : "stopping", loop.name, loop.interval);
   if (enabled) {
-    updaterLoop(updater);
+    promiseLoop(loop);
   } else {
-    clearTimeout(updater.timer);
-    updater.cancel();
+    clearTimeout(loop.timer);
+    loop.cancel();
   }
 }
 
@@ -582,8 +588,8 @@ function diffAndUpdateMarketsUi(differ, data) {
   }
 }
 
-const marketsUpdater = createUpdater({
-  name: "markets",
+const marketsLoop = createPromiseLoop({
+  name: "marketsLoop",
   interval: 10000,
   promiseFn: asyncUpdateMarketsUi,
   cancel: () => cancelFetch(tickerEndpoint),
@@ -646,8 +652,8 @@ function updateBooksUi(books) {
   updateBooksBtn.disabled = false;
 }
 
-const booksUpdater = createUpdater({
-  name: "books",
+const booksLoop = createPromiseLoop({
+  name: "booksLoop",
   interval: 3000,
   promiseFn: asyncUpdateBooksUi,
   cancel: () => cancelFetch(booksEndpoint),
@@ -683,8 +689,8 @@ function updateDocTitle(diff) {
 
 function autoupdateToggleClick(e) {
   const enable = e.target.checked;
-  setUpdaterEnabled(marketsUpdater, enable);
-  setUpdaterEnabled(booksUpdater, enable);
+  setPromiseLoopEnabled(marketsLoop, enable);
+  setPromiseLoopEnabled(booksLoop, enable);
 }
 
 // ### UI / WebSocket API handling
