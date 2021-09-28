@@ -751,7 +751,10 @@ function connect() {
   } else {
     console.log("fetching markets data for the first time");
     asyncUpdateMarketsUi().then(() => {
-      // todo: if markets promise gets rejected, subscription never happens
+      // todo: If markets promise gets rejected, subscription never happens
+      // and the socket stays open. The user will need to click disconnect
+      // and try again. The real solution should retry getting the markets
+      // until it succeeds or is canceled.
       if (markets) {
         // only subscribe to updates if markets db was populated
         subscribeMarketsWs();
