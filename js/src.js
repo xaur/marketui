@@ -264,12 +264,17 @@ function createMarkets(tickerResp) {
   const start = performance.now();
 
   const markets = new Map();
+  const deactivated = [];
   for (const marketName in tickerResp) {
     const market = createMarket(tickerResp[marketName], marketName);
     markets.set(market.id, market);
     if (!market.isActive) {
-      console.log("detected deactivated market:", market.label);
+      deactivated.push(market.label);
     }
+  }
+
+  if (deactivated.length > 0) {
+    console.log("detected deactivated markets:", deactivated.join(", "));
   }
 
   console.log("markets Map created in %.1f ms", performance.now() - start);
