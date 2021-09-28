@@ -73,15 +73,35 @@ function skipFetchCancels(e) {
 // queue, logging, and perf metrics. It is also specialized by encoding and
 // decoding sent/received data to/from JSON.
 //
+// WebSocket will be automatically closed after `noSendTimeout` ms of no
+// outgoing messages. The default is 60 seconds (60,000 ms). Use 0 to disable
+// auto-closing (it may still be closed for other reasons).
+//
 // Some ideas borrowed from:
 // https://github.com/decred/dcrdex/blob/d11f1ce9/client/webserver/site/src/js/ws.js
 
 function createWsEndpoint(url) {
-  return { url: url, ws: null, queue: [] };
+  return { url: url, ws: null, queue: [],
+           noSendTimeout: 60000, closeTimer: null };
 }
 
 function callMaybe(fn, arg) {
   if (fn !== undefined) { fn(arg); }
+}
+
+// if `delay <= 0` is passed, existing timeout will be cleared but a new one
+// will not be set
+function resetCloseTimer(endpoint, delay) {
+  clearTimeout(endpoint.closeTimer);
+  if (delay > 0) {
+    endpoint.closeTimer = setTimeout(() => {
+      console.log("ws auto-closing after no outgoing messages in %d ms",
+                  endpoint.noSendTimeout);
+      closeWs(endpoint);
+    }, delay);
+  } else {
+    endpoint.closeTimer = null;
+  }
 }
 
 function openWs(endpoint, handlers) {
@@ -94,9 +114,13 @@ function openWs(endpoint, handlers) {
     callMaybe(handlers.onerror, evt);
   };
 
+  // clean up any endpoint state here
   ws.onclose = (evt) => {
     console.log("ws disconnected from", endpoint.url);
+    // NOTE: `endpoint.queue` is not cleared here, meaning any queued messages
+    // will be sent when a new `WebSocket` is opened.
     endpoint.ws = null;
+    endpoint.closeTimer = null;
     callMaybe(handlers.onclose, evt);
   };
 
@@ -110,6 +134,8 @@ function openWs(endpoint, handlers) {
     // drain queue
     console.log("ws sending %d queued messages", oldQueue.length);
     for (const obj of oldQueue) { sendWs(endpoint, obj); }
+    
+    resetCloseTimer(endpoint, endpoint.noSendTimeout);
 
     callMaybe(handlers.onopen, evt);
   };
@@ -134,6 +160,7 @@ function sendWs(endpoint, obj) {
   const message = JSON.stringify(obj);
   console.log("ws sending:", message);
   ws.send(message);
+  resetCloseTimer(endpoint, endpoint.noSendTimeout);
 }
 
 function closeWs(endpoint) {
