@@ -101,6 +101,7 @@ function resetCloseTimer(endpoint, delay) {
     }, delay);
   } else {
     endpoint.closeTimer = null;
+    console.log("ws auto-closing disabled");
   }
 }
 
@@ -120,7 +121,9 @@ function openWs(endpoint, handlers) {
     // NOTE: `endpoint.queue` is not cleared here, meaning any queued messages
     // will be sent when a new `WebSocket` is opened.
     endpoint.ws = null;
-    endpoint.closeTimer = null;
+    // if current closing was not initiated by the auto-close timeout, the
+    // latter will do an extra closeWs(). Clear the timeout to prevent that.
+    resetCloseTimer(endpoint, 0);
     callMaybe(handlers.onclose, evt);
   };
 
