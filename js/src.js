@@ -201,12 +201,12 @@ function bumpWsHeartbeatMetrics() {
 function bumpWsTickerPriceMetrics(prevPrice, lastPrice) {
   if (prevPrice === lastPrice) {
     metWsTickerPriceUnchanged += 1;
-    if (metWsTickerPriceUnchanged % 400 === 0) {
+    if (metWsTickerPriceUnchanged % 500 === 0) {
       console.log("ws ticker price unchanged: %d", metWsTickerPriceUnchanged);
     }
   } else {
     metWsTickerPriceChanges += 1;
-    if (metWsTickerPriceChanges % 40 === 0) {
+    if (metWsTickerPriceChanges % 50 === 0) {
       console.log("ws ticker price changes: %d", metWsTickerPriceChanges);
     }
   }
@@ -478,7 +478,13 @@ function setPromiseLoopEnabled(loop, enabled) {
 const marketsTable = document.getElementById("markets-table");
 const marketsTbody = document.getElementById("markets-tbody");
 let marketIdToPriceCell; // Map (Number -> HTMLTableCellElement)
+
 let metMarketsTableLastUpdated; // DOMHighResTimeStamp
+let metMarketsTableUpdates = 0; // count
+let metMarketsTableUpdateDuration = 0; // ms
+let metMarketsTableChanges = 0; // count
+let metMarketsTableSinceLastReport = 0; // ms
+let metMarketsTableReportEvery = 10000; // ms
 
 const updateMarketsBtn = document.getElementById("update-markets-btn");
 
@@ -515,7 +521,38 @@ function createMarketsTable(markets) {
   console.log("markets table created in %.1f ms", performance.now() - start);
 }
 
-function updateMarketsTable(diff) {
+function bumpMarketsTableMetrics(updateStart, changesCount, aggregate) {
+  const now = performance.now();
+  const updateDur = now - updateStart;
+  const sinceLastUpd = now - metMarketsTableLastUpdated;
+
+  if (aggregate) {
+    metMarketsTableUpdates += 1;
+    metMarketsTableUpdateDuration += updateDur;
+    metMarketsTableChanges += changesCount;
+    metMarketsTableSinceLastReport += sinceLastUpd;
+    if (metMarketsTableSinceLastReport > metMarketsTableReportEvery) {
+      const avgBU = metMarketsTableSinceLastReport / metMarketsTableUpdates;
+      console.log("markets table: a total of %.1f ms spent while applying %d"
+                  + " updates with %d changes, avg %.1f ms between updates,"
+                  + " %d ms since last report",
+                  metMarketsTableUpdateDuration, metMarketsTableUpdates,
+                  metMarketsTableChanges, avgBU, metMarketsTableSinceLastReport);
+      metMarketsTableUpdates = 0;
+      metMarketsTableUpdateDuration = 0;
+      metMarketsTableChanges = 0;
+      metMarketsTableSinceLastReport = 0;
+    }
+  } else {
+    console.log("markets table updated in %.1f ms with %d changes,"
+                + " %d ms since last update",
+                updateDur, changesCount, sinceLastUpd);
+  }
+
+  metMarketsTableLastUpdated = now;
+}
+
+function updateMarketsTable(diff, aggregateMetrics) {
   if (!diff) {
     throw new Error("updateMarketsTable called with empty diff");
   }
@@ -565,18 +602,14 @@ function updateMarketsTable(diff) {
     }
   }
 
-  const now = performance.now();
-  console.log(
-    "markets table updated in %.1f ms with %d changes, %d ms since last update",
-    (now - updateStart), changes.size, (now - metMarketsTableLastUpdated));
-  metMarketsTableLastUpdated = now;
+  bumpMarketsTableMetrics(updateStart, changes.size, aggregateMetrics);
 }
 
 function updateMarketsUi(update) {
   if (update.init) {
     createMarketsTable(update.markets);
   } else if (update.diff) {
-    updateMarketsTable(update.diff);
+    updateMarketsTable(update.diff, false);
     updateDocTitle(update.diff);
   } // else the diff is empty, do nothing
 }
@@ -584,7 +617,7 @@ function updateMarketsUi(update) {
 function diffAndUpdateMarketsUi(differ, data) {
   const diff = diffAndUpdateMarkets(differ, data);
   if (diff) {
-    updateMarketsTable(diff);
+    updateMarketsTable(diff, true);
   }
 }
 
