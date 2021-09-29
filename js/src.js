@@ -212,27 +212,35 @@ function asyncFetchPoloniex(endpoint, params) {
 
 // ### Poloniex API / WebSocket
 
+const POLO_WS_CHAN_TICKER = 1002;
+const POLO_WS_CHAN_HEARTBEAT = 1010;
+
 // for now, cram Poloniex-specific thing (`ontickerupdate`) into this generic
 // WS endpoint object
 const wsEndpoint = createWsEndpoint("wss://api2.poloniex.com");
 
 wsEndpoint.onmessage = (obj) => {
   const [channel, seq] = obj;
-  if (channel === 1010) {
-    bumpWsHeartbeatMetrics();
-  } else if (channel === 1002) {
-    if (seq === 1) {
-      console.log("ws ticker subscription server ack");
-      return;
-    }
-    callMaybe(wsEndpoint.ontickerupdate, obj);
-  } else {
-    console.warn("received data we didn't subscribe for:", JSON.stringify(obj));
+  switch (channel) {
+    case POLO_WS_CHAN_HEARTBEAT:
+      bumpWsHeartbeatMetrics();
+      break;
+    case POLO_WS_CHAN_TICKER:
+      if (seq === 1) {
+        console.log("ws ticker subscription server ack");
+      } else {
+        callMaybe(wsEndpoint.ontickerupdate, obj);
+      }
+      break;
+    default:
+      console.warn("received data we didn't subscribe for:",
+                   JSON.stringify(obj));
+      break;
   }
 };
 
 function subscribeMarketsWs() {
-  sendWs(wsEndpoint, { "command": "subscribe", "channel": 1002 });
+  sendWs(wsEndpoint, { "command": "subscribe", "channel": POLO_WS_CHAN_TICKER });
 }
 
 function disconnect() {
