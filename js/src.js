@@ -182,6 +182,8 @@ function closeWs(endpoint) {
 
 // Code dealing with Poloniex's data model and maintaining its state.
 // It is not too concerned about what data model is used by its calling code.
+// This layer must have minimum performance overhead and not force unnecessary
+// abstractions on the calling code.
 // It must know nothing about app's UI.
 // API docs: https://docs.poloniex.com/
 
@@ -210,7 +212,24 @@ function asyncFetchPoloniex(endpoint, params) {
 
 // ### Poloniex API / WebSocket
 
+// for now, cram Poloniex-specific thing (`ontickerupdate`) into this generic
+// WS endpoint object
 const wsEndpoint = createWsEndpoint("wss://api2.poloniex.com");
+
+wsEndpoint.onmessage = (obj) => {
+  const [channel, seq] = obj;
+  if (channel === 1010) {
+    bumpWsHeartbeatMetrics();
+  } else if (channel === 1002) {
+    if (seq === 1) {
+      console.log("ws ticker subscription server ack");
+      return;
+    }
+    callMaybe(wsEndpoint.ontickerupdate, obj);
+  } else {
+    console.warn("received data we didn't subscribe for:", JSON.stringify(obj));
+  }
+};
 
 function subscribeMarketsWs() {
   sendWs(wsEndpoint, { "command": "subscribe", "channel": 1002 });
@@ -262,6 +281,7 @@ function bumpWsTickerPriceMetrics(prevPrice, lastPrice) {
 
 let markets; // Map (Number -> Market)
 let selectedMarketId; // Number
+let onmarketsupdate; // function, event handler
 
 // ### Data model / markets / methods
 
@@ -453,6 +473,14 @@ function asyncFetchMarkets() {
       }
     });
 }
+
+// consume Poloniex API event and produce data model event
+wsEndpoint.ontickerupdate = (tickerUpdate) => {
+  const diff = diffAndUpdateMarkets(marketsDiffWs, tickerUpdate);
+  if (diff) {
+    onmarketsupdate(markets, diff, true);
+  }
+};
 
 // ### Data model / books / methods
 
@@ -655,13 +683,6 @@ function updateMarketsUi(update) {
   } // else the diff is empty, do nothing
 }
 
-function diffAndUpdateMarketsUi(differ, data) {
-  const diff = diffAndUpdateMarkets(differ, data);
-  if (diff) {
-    updateMarketsTable(diff, true);
-  }
-}
-
 const marketsLoop = createPromiseLoop({
   name: "marketsLoop",
   interval: 10000,
@@ -769,21 +790,6 @@ function autoupdateToggleClick(e) {
 
 // ### UI / WebSocket API handling
 
-function onMessage(obj) {
-  const [channel, seq] = obj;
-  if (channel === 1010) {
-    bumpWsHeartbeatMetrics();
-  } else if (channel === 1002) {
-    if (seq === 1) {
-      console.log("ws ticker subscription server ack");
-      return;
-    }
-    diffAndUpdateMarketsUi(marketsDiffWs, obj);
-  } else {
-    console.warn("received data we didn't subscribe for:", JSON.stringify(obj));
-  }
-}
-
 function connect() {
   console.log("ws subscribing to market updates");
   if (markets) {
@@ -828,7 +834,11 @@ function initUi() {
     connectWsBtn.value = "disconnect ws";
     connectWsBtn.onclick = disconnect;
   };
-  wsEndpoint.onmessage = onMessage;
+
+  // consume data model event and update UI
+  onmarketsupdate = (markets, diff, aggregateMetrics) => {
+    updateMarketsTable(diff, aggregateMetrics);
+  };
 
   connectWsBtn.disabled = false;
   connectWsBtn.onclick = connect;
