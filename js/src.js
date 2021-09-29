@@ -846,6 +846,7 @@ function initUi() {
   // consume data model event and update UI
   onmarketsupdate = (markets, diff, aggregateMetrics) => {
     updateMarketsTable(diff, aggregateMetrics);
+    updateDocTitle(diff);
   };
 
   connectWsBtn.disabled = false;
