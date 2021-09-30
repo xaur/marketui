@@ -460,6 +460,8 @@ function updateMarkets(diff) {
     markets.delete(mid);
     console.log("market removed:", JSON.stringify(removedMarket));
   }
+  // assuming `diff` was checked earler to be not empty
+  callMaybe(onmarketsupdate, { markets, diff, aggregateMetrics: true });
 }
 
 function diffAndUpdateMarkets(differ, data) {
@@ -467,17 +469,13 @@ function diffAndUpdateMarkets(differ, data) {
   if (diff) {
     updateMarkets(diff);
   }
-  return diff;
 }
 
 function asyncFetchMarkets() {
   return asyncFetchPoloniex(tickerEndpoint)
     .then((tickerResp) => {
       if (markets) {
-        const diff = diffAndUpdateMarkets(marketsDiffHttp, tickerResp);
-        if (diff) {
-          callMaybe(onmarketsupdate, { markets, diff, aggregateMetrics: false });
-        }
+        diffAndUpdateMarkets(marketsDiffHttp, tickerResp);
       } else {
         markets = createMarkets(tickerResp); // global
         callMaybe(onmarketsreset, markets);
@@ -488,10 +486,7 @@ function asyncFetchMarkets() {
 
 // consume Poloniex API event and produce data model event
 wsEndpoint.ontickerupdate = (tickerUpdate) => {
-  const diff = diffAndUpdateMarkets(marketsDiffWs, tickerUpdate);
-  if (diff) {
-    callMaybe(onmarketsupdate, { markets, diff, aggregateMetrics: true });
-  }
+  diffAndUpdateMarkets(marketsDiffWs, tickerUpdate);
 };
 
 // ### Data model / books / methods
