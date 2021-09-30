@@ -476,11 +476,11 @@ function asyncFetchMarkets() {
       if (markets) {
         const diff = diffAndUpdateMarkets(marketsDiffHttp, tickerResp);
         if (diff) {
-          onmarketsupdate(markets, diff, false);
+          callMaybe(onmarketsupdate, { markets, diff, aggregateMetrics: false });
         }
       } else {
         markets = createMarkets(tickerResp); // global
-        onmarketsreset(markets);
+        callMaybe(onmarketsreset, markets);
       }
     })
     .catch(skipFetchCancels);
@@ -490,7 +490,7 @@ function asyncFetchMarkets() {
 wsEndpoint.ontickerupdate = (tickerUpdate) => {
   const diff = diffAndUpdateMarkets(marketsDiffWs, tickerUpdate);
   if (diff) {
-    onmarketsupdate(markets, diff, true);
+    callMaybe(onmarketsupdate, { markets, diff, aggregateMetrics: true });
   }
 };
 
@@ -838,7 +838,7 @@ function initUi() {
     createMarketsTable(markets);
   };
 
-  onmarketsupdate = (markets, diff, aggregateMetrics) => {
+  onmarketsupdate = ({ markets, diff, aggregateMetrics }) => {
     updateMarketsTable(diff, aggregateMetrics);
     updateDocTitle(diff);
   };
