@@ -290,6 +290,7 @@ function bumpWsTickerPriceMetrics(prevPrice, lastPrice) {
 let markets; // Map (Number -> Market)
 let selectedMarketId; // Number
 let onmarketsupdate; // function, event handler
+let onmarketsreset; // function, event handler
 
 // ### Data model / markets / methods
 
@@ -474,12 +475,15 @@ function asyncFetchMarkets() {
     .then((tickerResp) => {
       if (markets) {
         const diff = diffAndUpdateMarkets(marketsDiffHttp, tickerResp);
-        return { init: false, markets: null, diff: diff };
+        if (diff) {
+          onmarketsupdate(markets, diff, false);
+        }
       } else {
         markets = createMarkets(tickerResp); // global
-        return { init: true, markets: markets, diff: null };
+        onmarketsreset(markets);
       }
-    });
+    })
+    .catch(skipFetchCancels);
 }
 
 // consume Poloniex API event and produce data model event
@@ -682,27 +686,12 @@ function updateMarketsTable(diff, aggregateMetrics) {
   bumpMarketsTableMetrics(updateStart, changes.size, aggregateMetrics);
 }
 
-function updateMarketsUi(update) {
-  if (update.init) {
-    createMarketsTable(update.markets);
-  } else if (update.diff) {
-    updateMarketsTable(update.diff, false);
-    updateDocTitle(update.diff);
-  } // else the diff is empty, do nothing
-}
-
 const marketsLoop = createPromiseLoop({
   name: "marketsLoop",
   interval: 10000,
-  promiseFn: asyncUpdateMarketsUi,
+  promiseFn: asyncFetchMarkets,
   cancel: () => cancelFetch(tickerEndpoint),
 });
-
-function asyncUpdateMarketsUi() {
-  return asyncFetchMarkets()
-    .then(updateMarketsUi)
-    .catch(skipFetchCancels);
-}
 
 function marketsTableClick(e) {
   const tr = event.target.closest("tr");
@@ -805,7 +794,7 @@ function connect() {
     subscribeMarketsWs();
   } else {
     console.log("fetching markets data for the first time");
-    asyncUpdateMarketsUi().then(() => {
+    asyncFetchMarkets().then(() => {
       // todo: If markets promise gets rejected, subscription never happens
       // and the socket stays open. The user will need to click disconnect
       // and try again. The real solution should retry getting the markets
@@ -823,7 +812,7 @@ function connect() {
 function initUi() {
   updateMarketsBtn.disabled = false;
   updateMarketsBtn.onclick = (e) => {
-    asyncUpdateMarketsUi();
+    asyncFetchMarkets();
   };
 
   updateBooksBtn.onclick = (e) => {
@@ -843,7 +832,12 @@ function initUi() {
     connectWsBtn.onclick = disconnect;
   };
 
-  // consume data model event and update UI
+  // consume data model events and update UI
+
+  onmarketsreset = (markets) => {
+    createMarketsTable(markets);
+  };
+
   onmarketsupdate = (markets, diff, aggregateMetrics) => {
     updateMarketsTable(diff, aggregateMetrics);
     updateDocTitle(diff);
