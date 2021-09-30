@@ -22,6 +22,7 @@ function createEndpoint(props) {
 
 class RequestIgnored extends Error {}
 
+// must always return a Promise to enable chained Promise fns
 function asyncFetchJson(endpoint, params) {
   if (endpoint.fetching) {
     const reason = "ignoring fetch request until existing one finishes";
@@ -200,6 +201,7 @@ const booksEndpoint = createEndpoint({
   maxDepth: 100,
 });
 
+// must always return a Promise to enable chained Promise fns
 function asyncFetchPoloniex(endpoint, params) {
   return asyncFetchJson(endpoint, params)
     .then((apiResp) => {
@@ -471,7 +473,8 @@ function diffAndUpdateMarkets(differ, data) {
   }
 }
 
-function asyncFetchMarkets() {
+// must always return a Promise to enable chained Promise fns
+function asyncUpdateMarkets() {
   return asyncFetchPoloniex(tickerEndpoint)
     .then((tickerResp) => {
       if (markets) {
@@ -480,6 +483,7 @@ function asyncFetchMarkets() {
         markets = createMarkets(tickerResp); // global
         callMaybe(onmarketsreset, markets);
       }
+      // no return, not passing data further
     })
     .catch(skipFetchCancels);
 }
@@ -488,6 +492,10 @@ function asyncFetchMarkets() {
 wsEndpoint.ontickerupdate = (tickerUpdate) => {
   diffAndUpdateMarkets(marketsDiffWs, tickerUpdate);
 };
+
+// ### Data model / books / state
+
+let onbooksupdate; // function, event handler
 
 // ### Data model / books / methods
 
@@ -501,12 +509,23 @@ function asyncFetchBooks(marketId, depth = booksEndpoint.maxDepth) {
     });
 }
 
+// must always return a Promise to enable chained Promise fns
 function asyncFetchSelectedBooks() {
   if (!isMarketId(selectedMarketId)) {
     const reason = "skipping books update until a market is selected";
     return Promise.reject(new RequestIgnored(reason));
   }
   return asyncFetchBooks(selectedMarketId);
+}
+
+// must always return a Promise to enable chained Promise fns
+function asyncUpdateSelectedBooks() {
+  return asyncFetchSelectedBooks()
+    .then((books) => {
+      callMaybe(onbooksupdate, books);
+      // no return, not passing data further
+    })
+    .catch(skipFetchCancels);
 }
 
 // ### Data model / PromiseLoop / methods
@@ -684,7 +703,7 @@ function updateMarketsTable(diff, aggregateMetrics) {
 const marketsLoop = createPromiseLoop({
   name: "marketsLoop",
   interval: 10000,
-  promiseFn: asyncFetchMarkets,
+  promiseFn: asyncUpdateMarkets,
   cancel: () => cancelFetch(tickerEndpoint),
 });
 
@@ -696,7 +715,7 @@ function marketsTableClick(e) {
   tr.classList.add("row-selected");
   const market = markets.get(selectedMarketId);
   setDocTitle(market.label, market.last);
-  asyncUpdateBooksUi();
+  asyncUpdateSelectedBooks();
 }
 
 // ### UI / books / state
@@ -742,15 +761,9 @@ function updateBooksUi(books) {
 const booksLoop = createPromiseLoop({
   name: "booksLoop",
   interval: 3000,
-  promiseFn: asyncUpdateBooksUi,
+  promiseFn: asyncUpdateSelectedBooks,
   cancel: () => cancelFetch(booksEndpoint),
 });
-
-function asyncUpdateBooksUi() {
-  return asyncFetchSelectedBooks()
-    .then(updateBooksUi)
-    .catch(skipFetchCancels);
-}
 
 // ### UI / other / state
 
@@ -789,7 +802,7 @@ function connect() {
     subscribeMarketsWs();
   } else {
     console.log("fetching markets data for the first time");
-    asyncFetchMarkets().then(() => {
+    asyncUpdateMarkets().then(() => {
       // todo: If markets promise gets rejected, subscription never happens
       // and the socket stays open. The user will need to click disconnect
       // and try again. The real solution should retry getting the markets
@@ -807,11 +820,11 @@ function connect() {
 function initUi() {
   updateMarketsBtn.disabled = false;
   updateMarketsBtn.onclick = (e) => {
-    asyncFetchMarkets();
+    asyncUpdateMarkets();
   };
 
   updateBooksBtn.onclick = (e) => {
-    asyncUpdateBooksUi();
+    asyncUpdateSelectedBooks();
   };
 
   wsEndpoint.onpreopen = () => {
@@ -829,14 +842,14 @@ function initUi() {
 
   // consume data model events and update UI
 
-  onmarketsreset = (markets) => {
-    createMarketsTable(markets);
-  };
+  onmarketsreset = createMarketsTable;
 
   onmarketsupdate = ({ markets, diff, aggregateMetrics }) => {
     updateMarketsTable(diff, aggregateMetrics);
     updateDocTitle(diff);
   };
+
+  onbooksupdate = updateBooksUi;
 
   connectWsBtn.disabled = false;
   connectWsBtn.onclick = connect;
