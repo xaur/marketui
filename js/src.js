@@ -493,6 +493,26 @@ wsEndpoint.ontickerupdate = (tickerUpdate) => {
   diffAndUpdateMarkets(marketsDiffWs, tickerUpdate);
 };
 
+function enableMarketsUpdateWs() {
+  console.log("ws subscribing to market updates");
+  if (markets) {
+    console.log("reusing existing markets data");
+    subscribeMarketsWs();
+  } else {
+    console.log("fetching markets data for the first time");
+    asyncUpdateMarkets().then(() => {
+      // todo: If markets promise gets rejected, subscription never happens
+      // and the socket stays open. The user will need to click disconnect
+      // and try again. The real solution should retry getting the markets
+      // until it succeeds or is canceled.
+      if (markets) {
+        // only subscribe to updates if markets db was populated
+        subscribeMarketsWs();
+      }
+    });
+  }
+}
+
 // ### Data model / books / state
 
 let onbooksupdate; // function, event handler
@@ -793,27 +813,6 @@ function autoupdateToggleClick(e) {
   setPromiseLoopEnabled(booksLoop, enable);
 }
 
-// ### UI / WebSocket API handling
-
-function connect() {
-  console.log("ws subscribing to market updates");
-  if (markets) {
-    console.log("reusing existing markets data");
-    subscribeMarketsWs();
-  } else {
-    console.log("fetching markets data for the first time");
-    asyncUpdateMarkets().then(() => {
-      // todo: If markets promise gets rejected, subscription never happens
-      // and the socket stays open. The user will need to click disconnect
-      // and try again. The real solution should retry getting the markets
-      // until it succeeds or is canceled.
-      if (markets) {
-        // only subscribe to updates if markets db was populated
-        subscribeMarketsWs();
-      }
-    });
-  }
-}
 
 // ## Putting it all together
 
@@ -833,7 +832,7 @@ function initUi() {
   };
   wsEndpoint.onclose = () => {
     connectWsBtn.value = "connect ws";
-    connectWsBtn.onclick = connect;
+    connectWsBtn.onclick = enableMarketsUpdateWs;
   };
   wsEndpoint.onopen = () => {
     connectWsBtn.value = "disconnect ws";
@@ -852,7 +851,7 @@ function initUi() {
   onbooksupdate = updateBooksUi;
 
   connectWsBtn.disabled = false;
-  connectWsBtn.onclick = connect;
+  connectWsBtn.onclick = enableMarketsUpdateWs;
 
   marketsTbody.onclick = marketsTableClick;
 
