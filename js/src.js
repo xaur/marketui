@@ -495,22 +495,18 @@ wsEndpoint.ontickerupdate = (tickerUpdate) => {
 
 function enableMarketsUpdateWs() {
   console.log("ws subscribing to market updates");
-  if (markets) {
-    console.log("reusing existing markets data");
-    subscribeMarketsWs();
-  } else {
+  if (!markets) {
     console.log("fetching markets data for the first time");
-    asyncUpdateMarkets().then(() => {
-      // todo: If markets promise gets rejected, subscription never happens
-      // and the socket stays open. The user will need to click disconnect
-      // and try again. The real solution should retry getting the markets
-      // until it succeeds or is canceled.
-      if (markets) {
-        // only subscribe to updates if markets db was populated
-        subscribeMarketsWs();
-      }
-    });
+    // Trigger markets fetch, schedule another attempt and return.
+    // If markets fetch fails, subscription will not happen and the user will
+    // need to try again.
+    // In the future, a better solution should retry the fetch until it
+    // succeeds or is canceled.
+    asyncUpdateMarkets().then(enableMarketsUpdateWs);
+    return;
   }
+  // only subscribe to updates if markets db exists and can be written to
+  subscribeMarketsWs();
 }
 
 // ### Data model / books / state
