@@ -489,6 +489,9 @@ function marketsDiffWs(markets, updates) {
 
 // apply mutations in one place, also log important events
 function updateMarkets(markets, diff) {
+  if (!diff) {
+    return;
+  }
   for (const [mid, marketChange] of diff.changes) {
     const market = markets.get(mid);
     for (const key in marketChange) {
@@ -515,13 +518,6 @@ function updateMarkets(markets, diff) {
   callMaybe(onmarketsupdate, { markets, diff, aggregateMetrics: true });
 }
 
-function diffAndUpdateMarkets(markets, differ, data) {
-  const diff = differ(markets, data);
-  if (diff) {
-    updateMarkets(markets, diff);
-  }
-}
-
 // mutate the global var in one place
 function resetMarkets(newMarkets) {
   markets = newMarkets;
@@ -533,7 +529,7 @@ function asyncUpdateMarkets() {
   return asyncFetchPoloniex(tickerEndpoint)
     .then((tickerResp) => {
       if (markets) {
-        diffAndUpdateMarkets(markets, marketsDiffHttp, tickerResp);
+        updateMarkets(markets, marketsDiffHttp(markets, tickerResp));
       } else {
         resetMarkets(createMarkets(tickerResp));
       }
@@ -544,7 +540,7 @@ function asyncUpdateMarkets() {
 
 // consume Poloniex API event and produce data model event
 wsEndpoint.ontickerupdate = (tickerUpdate) => {
-  diffAndUpdateMarkets(markets, marketsDiffWs, tickerUpdate);
+  updateMarkets(markets, marketsDiffWs(markets, tickerUpdate));
 };
 
 function enableMarketsUpdateWs() {
