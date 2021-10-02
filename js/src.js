@@ -327,6 +327,10 @@ function bumpWsTickerPriceMetrics(prevPrice, lastPrice) {
 // ### Data model / markets / state
 
 let markets; // Map (Number -> Market)
+// Ownership of `selectedMarketId` is a bit controversial at this point.
+// The "markets model" does not have a concept of "selected" (yet), but the
+// widgets (markets table, book tables, document title) read and write it.
+// Keep it in the "markets model" for now.
 let selectedMarketId; // Number
 let onmarketsupdate; // function, event handler
 let onmarketsreset; // function, event handler
@@ -414,7 +418,7 @@ function marketsDiff(changes, additions, removals) {
   }
 }
 
-function marketsDiffHttp(tickerResp) {
+function marketsDiffHttp(markets, tickerResp) {
   const start = now();
   const changes = new Map(), additions = new Map(), removals = new Map();
   const oldIds = new Set(markets.keys());
@@ -441,7 +445,7 @@ function marketsDiffHttp(tickerResp) {
   return marketsDiff(changes, additions, removals);
 }
 
-function marketsDiffWs(updates) {
+function marketsDiffWs(markets, updates) {
   const changes = new Map(), additions = new Map(), removals = new Map();
   // updates look like: [ <chan id>, null,
   // [ <pair id>, "<last trade price>", "<lowest ask>", "<highest bid>",
@@ -456,7 +460,7 @@ function marketsDiffWs(updates) {
     const marketUpd = {
       isActive: (update[7] !== 1),
       last: update[1],
-    }
+    };
 
     const market = markets.get(mid);
     if (!market) { // added market
@@ -484,7 +488,7 @@ function marketsDiffWs(updates) {
 }
 
 // apply mutations in one place, also log important events
-function updateMarkets(diff) {
+function updateMarkets(markets, diff) {
   for (const [mid, marketChange] of diff.changes) {
     const market = markets.get(mid);
     for (const key in marketChange) {
@@ -511,11 +515,17 @@ function updateMarkets(diff) {
   callMaybe(onmarketsupdate, { markets, diff, aggregateMetrics: true });
 }
 
-function diffAndUpdateMarkets(differ, data) {
-  const diff = differ(data);
+function diffAndUpdateMarkets(markets, differ, data) {
+  const diff = differ(markets, data);
   if (diff) {
-    updateMarkets(diff);
+    updateMarkets(markets, diff);
   }
+}
+
+// mutate the global var in one place
+function resetMarkets(newMarkets) {
+  markets = newMarkets;
+  callMaybe(onmarketsreset, markets);
 }
 
 // must always return a Promise to enable chained Promise fns
@@ -523,10 +533,9 @@ function asyncUpdateMarkets() {
   return asyncFetchPoloniex(tickerEndpoint)
     .then((tickerResp) => {
       if (markets) {
-        diffAndUpdateMarkets(marketsDiffHttp, tickerResp);
+        diffAndUpdateMarkets(markets, marketsDiffHttp, tickerResp);
       } else {
-        markets = createMarkets(tickerResp); // global
-        callMaybe(onmarketsreset, markets);
+        resetMarkets(createMarkets(tickerResp));
       }
       // no return, not passing data further
     })
@@ -535,7 +544,7 @@ function asyncUpdateMarkets() {
 
 // consume Poloniex API event and produce data model event
 wsEndpoint.ontickerupdate = (tickerUpdate) => {
-  diffAndUpdateMarkets(marketsDiffWs, tickerUpdate);
+  diffAndUpdateMarkets(markets, marketsDiffWs, tickerUpdate);
 };
 
 function enableMarketsUpdateWs() {
@@ -547,7 +556,8 @@ function enableMarketsUpdateWs() {
     // need to try again.
     // In the future, a better solution should retry the fetch until it
     // succeeds or is canceled.
-    asyncUpdateMarkets().then(enableMarketsUpdateWs);
+    asyncUpdateMarkets()
+      .then(enableMarketsUpdateWs);
     return;
   }
   // only subscribe to updates if markets db exists and can be written to
@@ -567,12 +577,11 @@ const booksLoop = createPromiseLoop({
 
 // ### Data model / books / methods
 
-function asyncFetchBooks(marketId, depth = booksEndpoint.maxDepth) {
-  const m = markets.get(marketId);
-  const pair = m.base + "_" + m.quote;
+function asyncFetchBooks(market, depth = booksEndpoint.maxDepth) {
+  const pair = market.base + "_" + market.quote;
   return asyncFetchPoloniex(booksEndpoint, { pair: pair, depth: depth })
     .then((booksResp) => {
-      booksResp.market = m;
+      booksResp.market = market;
       return booksResp;
     });
 }
@@ -583,7 +592,8 @@ function asyncFetchSelectedBooks() {
     const reason = "skipping books update until a market is selected";
     return Promise.reject(new RequestIgnored(reason));
   }
-  return asyncFetchBooks(selectedMarketId);
+  const market = markets.get(selectedMarketId);
+  return asyncFetchBooks(market);
 }
 
 // must always return a Promise to enable chained Promise fns
@@ -733,7 +743,7 @@ function updateMarketsTable(diff, aggregateMetrics) {
 
 function marketsTableClick(e) {
   const tr = event.target.closest("tr");
-  selectedMarketId = marketId(tr.dataset.id);
+  selectedMarketId = marketId(tr.dataset.id); // mutate global
   marketsTbody.querySelectorAll(".row-selected")
     .forEach((el) => el.classList.remove("row-selected"));
   tr.classList.add("row-selected");
