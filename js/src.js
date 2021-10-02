@@ -50,6 +50,8 @@ function setPromiseLoopEnabled(loop, enabled) {
   }
 }
 
+const now = () => performance.now();
+
 
 // ## HTTP endpoint utils
 
@@ -72,7 +74,7 @@ function asyncFetchJson(endpoint, params) {
   endpoint.fetching = true;
   endpoint.aborter = new AbortController();
   const url = format(endpoint.url, params);
-  const start = performance.now();
+  const start = now();
   const promise = fetch(url, { signal: endpoint.aborter.signal })
     .then((response) => {
       if (response.ok) {
@@ -84,8 +86,7 @@ function asyncFetchJson(endpoint, params) {
       }
     })
     .finally(() => {
-      console.log("%s request took %d ms",
-                  endpoint.name, performance.now() - start);
+      console.log("%s request took %d ms", endpoint.name, now() - start);
       endpoint.fetching = false;
     });
   return promise;
@@ -371,7 +372,7 @@ function createMarket(tickerItem, name) {
 
 // transform ticker response: key it by market id and add display names
 function createMarkets(tickerResp) {
-  const start = performance.now();
+  const start = now();
 
   const markets = new Map();
   const deactivated = [];
@@ -387,7 +388,7 @@ function createMarkets(tickerResp) {
     console.log("detected deactivated markets:", deactivated.join(", "));
   }
 
-  console.log("markets Map created in %.1f ms", performance.now() - start);
+  console.log("markets Map created in %.1f ms", now() - start);
   return markets;
 }
 
@@ -414,7 +415,7 @@ function marketsDiff(changes, additions, removals) {
 }
 
 function marketsDiffHttp(tickerResp) {
-  const start = performance.now();
+  const start = now();
   const changes = new Map(), additions = new Map(), removals = new Map();
   const oldIds = new Set(markets.keys());
 
@@ -436,7 +437,7 @@ function marketsDiffHttp(tickerResp) {
     removals.set(id, markets.get(id));
   }
 
-  console.log("markets diff computed in %.1f ms", performance.now() - start);
+  console.log("markets diff computed in %.1f ms", now() - start);
   return marketsDiff(changes, additions, removals);
 }
 
@@ -622,7 +623,7 @@ function compareByLabel(a, b) {
 }
 
 function createMarketsTable(markets) {
-  const start = performance.now();
+  const start = now();
 
   marketsTbody.innerHTML = "";
   const marketsArr = Array.from(markets.values());
@@ -642,14 +643,14 @@ function createMarketsTable(markets) {
 
   marketIdToPriceCell = priceCellIndex;
 
-  metMarketsTableLastUpdated = performance.now();
-  console.log("markets table created in %.1f ms", performance.now() - start);
+  metMarketsTableLastUpdated = now();
+  console.log("markets table created in %.1f ms", now() - start);
 }
 
 function bumpMarketsTableMetrics(updateStart, changesCount, aggregate) {
-  const now = performance.now();
-  const updateDur = now - updateStart;
-  const sinceLastUpd = now - metMarketsTableLastUpdated;
+  const noww = now();
+  const updateDur = noww - updateStart;
+  const sinceLastUpd = noww - metMarketsTableLastUpdated;
 
   if (aggregate) {
     metMarketsTableUpdates += 1;
@@ -681,7 +682,7 @@ function updateMarketsTable(diff, aggregateMetrics) {
   if (!diff) {
     throw new Error("updateMarketsTable called with empty diff");
   }
-  const updateStart = performance.now();
+  const updateStart = now();
   const changes = diff.changes;
 
   // we have to update the DOM in two parts because we have to trigger a reflow
