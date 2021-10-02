@@ -540,6 +540,9 @@ function asyncUpdateMarkets() {
 
 // consume Poloniex API event and produce data model event
 wsEndpoint.ontickerupdate = (tickerUpdate) => {
+  if (!markets) {
+    throw new Error("markets data not initialized");
+  }
   updateMarkets(markets, marketsDiffWs(markets, tickerUpdate));
 };
 
