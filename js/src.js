@@ -2,12 +2,52 @@
 
 // ## JS utils
 
+function callMaybe(fn, arg) {
+  if (fn !== undefined) { fn(arg); }
+}
+
 function format(template, params) {
   let res = template;
   for (const key in params) {
     res = res.replace("{" + key + "}", params[key]);
   }
   return res;
+}
+
+// `PromiseLoop` repeatedly calls a function and is similar to `setInterval`,
+// with notable differences:
+//
+// - the function must return a `Promise`
+// - you must provide a `cancel` function that cancels the operation
+// - the loop can be enabled or disabled
+// - wait `interval` begins after the function call _completes_, in contrast
+//   with `setInterval` where the delay starts immediately after the call
+//   _starts_ (so it's fine if the call takes longer than `interval`)
+
+function createPromiseLoop(props) {
+  return Object.assign({ enabled: false, timer: null }, props);
+}
+
+function promiseLoop(loop) {
+  loop.promiseFn()
+    .finally(() => {
+      // false prevents from setting new timers
+      if (loop.enabled) {
+        loop.timer = setTimeout(promiseLoop, loop.interval, loop);
+      }
+    });
+}
+
+function setPromiseLoopEnabled(loop, enabled) {
+  loop.enabled = enabled;
+  console.log("%s %s every %d ms",
+              enabled ? "starting" : "stopping", loop.name, loop.interval);
+  if (enabled) {
+    promiseLoop(loop);
+  } else {
+    clearTimeout(loop.timer);
+    loop.cancel();
+  }
 }
 
 
@@ -87,10 +127,6 @@ function skipFetchCancels(e) {
 function createWsEndpoint(url) {
   return { url: url, ws: null, queue: [],
            noSendTimeout: 60000, closeTimer: null };
-}
-
-function callMaybe(fn, arg) {
-  if (fn !== undefined) { fn(arg); }
 }
 
 // if `delay <= 0` is passed, existing timeout will be cleared but a new one
@@ -294,6 +330,13 @@ let selectedMarketId; // Number
 let onmarketsupdate; // function, event handler
 let onmarketsreset; // function, event handler
 
+const marketsLoop = createPromiseLoop({
+  name: "marketsLoop",
+  interval: 10000,
+  promiseFn: asyncUpdateMarkets,
+  cancel: () => cancelFetch(tickerEndpoint),
+});
+
 // ### Data model / markets / methods
 
 function isMarketId(id) {
@@ -361,7 +404,8 @@ function marketChange(market, update) {
   return change;
 }
 
-function diffOrNull(changes, additions, removals) {
+// allow simple checks for empty diffs like `if (diff) ...`
+function marketsDiff(changes, additions, removals) {
   if ((changes.size === 0) && (additions.size === 0) && (removals.size === 0)) {
     return null;
   } else {
@@ -393,7 +437,7 @@ function marketsDiffHttp(tickerResp) {
   }
 
   console.log("markets diff computed in %.1f ms", performance.now() - start);
-  return diffOrNull(changes, additions, removals);
+  return marketsDiff(changes, additions, removals);
 }
 
 function marketsDiffWs(updates) {
@@ -435,7 +479,7 @@ function marketsDiffWs(updates) {
   if (updates.length > 2 + 1) {
     console.warn("got more than 1 ticker update:", (updates.length - 2));
   }
-  return diffOrNull(changes, additions, removals);
+  return marketsDiff(changes, additions, removals);
 }
 
 // apply mutations in one place, also log important events
@@ -513,6 +557,13 @@ function enableMarketsUpdateWs() {
 
 let onbooksupdate; // function, event handler
 
+const booksLoop = createPromiseLoop({
+  name: "booksLoop",
+  interval: 3000,
+  promiseFn: asyncUpdateSelectedBooks,
+  cancel: () => cancelFetch(booksEndpoint),
+});
+
 // ### Data model / books / methods
 
 function asyncFetchBooks(marketId, depth = booksEndpoint.maxDepth) {
@@ -544,43 +595,6 @@ function asyncUpdateSelectedBooks() {
     .catch(skipFetchCancels);
 }
 
-// ### Data model / PromiseLoop / methods
-
-// `PromiseLoop` repeatedly calls a function and is similar to `setInterval`,
-// with notable differences:
-//
-// - the function must return a `Promise`
-// - you must provide a `cancel` function that cancels the operation
-// - the loop can be enabled or disabled
-// - wait `interval` begins after the function call _completes_, in contrast
-//   with `setInterval` where the delay starts immediately after the call
-//   _starts_ (so it's fine if the call takes longer than `interval`)
-
-function createPromiseLoop(props) {
-  return Object.assign({ enabled: false, timer: null }, props);
-}
-
-function promiseLoop(loop) {
-  loop.promiseFn()
-    .finally(() => {
-      // false prevents from setting new timers
-      if (loop.enabled) {
-        loop.timer = setTimeout(promiseLoop, loop.interval, loop);
-      }
-    });
-}
-
-function setPromiseLoopEnabled(loop, enabled) {
-  loop.enabled = enabled;
-  console.log("%s %s every %d ms",
-              enabled ? "starting" : "stopping", loop.name, loop.interval);
-  if (enabled) {
-    promiseLoop(loop);
-  } else {
-    clearTimeout(loop.timer);
-    loop.cancel();
-  }
-}
 
 // ## UI management
 
@@ -716,13 +730,6 @@ function updateMarketsTable(diff, aggregateMetrics) {
   bumpMarketsTableMetrics(updateStart, changes.size, aggregateMetrics);
 }
 
-const marketsLoop = createPromiseLoop({
-  name: "marketsLoop",
-  interval: 10000,
-  promiseFn: asyncUpdateMarkets,
-  cancel: () => cancelFetch(tickerEndpoint),
-});
-
 function marketsTableClick(e) {
   const tr = event.target.closest("tr");
   selectedMarketId = marketId(tr.dataset.id);
@@ -773,13 +780,6 @@ function updateBooksUi(books) {
   setTickers(bidsTable, books.market.quote);
   updateBooksBtn.disabled = false;
 }
-
-const booksLoop = createPromiseLoop({
-  name: "booksLoop",
-  interval: 3000,
-  promiseFn: asyncUpdateSelectedBooks,
-  cancel: () => cancelFetch(booksEndpoint),
-});
 
 // ### UI / other / state
 
