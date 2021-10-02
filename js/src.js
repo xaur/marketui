@@ -252,6 +252,7 @@ function asyncFetchPoloniex(endpoint, params) {
 // ### Poloniex API / WebSocket
 
 const POLO_WS_CHAN_TICKER = 1002;
+const POLO_WS_CHAN_TICKER_STR = "1002";
 const POLO_WS_CHAN_HEARTBEAT = 1010;
 
 // for now, cram Poloniex-specific thing (`ontickerupdate`) into this generic
@@ -265,21 +266,25 @@ wsEndpoint.onmessage = (obj) => {
       bumpWsHeartbeatMetrics();
       break;
     case POLO_WS_CHAN_TICKER:
+    // fallthrough; workaround occasional strings - API bug (2021-10-02)
+    case POLO_WS_CHAN_TICKER_STR:
       if (seq === 1) {
-        console.log("ws ticker subscription server ack");
+        console.log("ws ticker updates subscribed");
+      } else if (seq === 0) {
+        console.log("ws ticker updates unsubscribed");
       } else {
         callMaybe(wsEndpoint.ontickerupdate, obj);
       }
       break;
     default:
-      console.warn("received data we didn't subscribe for:",
-                   JSON.stringify(obj));
+      console.warn("received data of unknown type:", JSON.stringify(obj));
       break;
   }
 };
 
-function subscribeMarketsWs() {
-  sendWs(wsEndpoint, { "command": "subscribe", "channel": POLO_WS_CHAN_TICKER });
+function setSubscriptionEnabledWs(channel, enabled) {
+  const command = enabled ? "subscribe" : "unsubscribe";
+  sendWs(wsEndpoint, { "command": command, "channel": channel });
 }
 
 function disconnect() {
@@ -560,7 +565,7 @@ function enableMarketsUpdateWs() {
     return;
   }
   // only subscribe to updates if markets db exists and can be written to
-  subscribeMarketsWs();
+  setSubscriptionEnabledWs(POLO_WS_CHAN_TICKER, true);
 }
 
 // ### Data model / books / state
