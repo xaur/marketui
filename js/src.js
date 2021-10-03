@@ -688,6 +688,13 @@ function convertBooksUpdateWs(obj) {
   //   "<epoch_ms>" ] ] ]
 
   const [marketId, _seq, updates] = obj;
+
+  if (!updates) {
+    // todo: understand how to handle this
+    console.warn("empty book updates?", obj);
+    return null;
+  }
+
   const up0 = updates[0];
   const up0type = up0[0];
 
