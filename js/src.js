@@ -6,6 +6,15 @@ function callMaybe(fn, arg) {
   if (fn !== undefined) { fn(arg); }
 }
 
+// primitive version of `Object.entries()` (not available in ES2015)
+// CAUTION: This does not check `obj.hasOwnProperty()` for speed.
+// `obj` must be dumb.
+function entries(obj) {
+  const res = [];
+  for (const key in obj) { res.push([key, obj[key]]); }
+  return res;
+}
+
 function format(template, params) {
   let res = template;
   for (const key in params) {
@@ -13,6 +22,11 @@ function format(template, params) {
   }
   return res;
 }
+
+const numericCompare = new Intl.Collator(
+  "en-US", { numeric: true, sensitivity: "base" }).compare;
+const firstStrAsc = (a, b) => numericCompare(a[0], b[0]);
+const firstStrDesc = (a, b) => numericCompare(b[0], a[0]);
 
 // `PromiseLoop` repeatedly calls a function and is similar to `setInterval`,
 // with notable differences:
@@ -262,6 +276,7 @@ const wsEndpoint = createWsEndpoint("wss://api2.poloniex.com");
 wsEndpoint.ontickerupdate = undefined;
 wsEndpoint.ontickersubscribed = undefined;
 wsEndpoint.ontickerunsubscribed = undefined;
+wsEndpoint.onbooksupdate = undefined;
 
 wsEndpoint.onmessage = (obj) => {
   if (obj.error) {
@@ -302,7 +317,14 @@ wsEndpoint.onmessage = (obj) => {
                    JSON.stringify(obj));
       break;
     default:
-      console.warn("received data of unknown type:", JSON.stringify(obj));
+      // no matches with any of the above => channel is a currency pair id
+      if (seq === 1) {
+        console.log("ws books for pair %d subscribed", channel);
+      } else if (seq === 0) {
+        console.log("ws books for pair %d unsubscribed", channel);
+      } else {
+        callMaybe(wsEndpoint.onbooksupdate, obj);
+      }
       break;
   }
 };
@@ -638,6 +660,65 @@ function asyncUpdateSelectedBooks() {
       // no return, not passing data further
     })
     .catch(skipFetchCancels);
+}
+
+function enableBookUpdateWs(marketId) {
+  setSubscriptionEnabledWs(marketId, true);
+}
+
+function disableBookUpdateWs(marketId) {
+  setSubscriptionEnabledWs(marketId, false);
+}
+
+function convertBooksUpdateWs(obj) {
+  // first message should be the initial dump of the book:
+  //
+  // [ <channel id>, <sequence number>, [ [ "i",
+  //   { "currencyPair": "<currency pair name>", "orderBook": [
+  //     { "<lowest ask price>": "<lowest ask size>",
+  //       "<next ask price>": "<next ask size>", ... },
+  //     { "<highest bid price>": "<highest bid size>",
+  //       "<next bid price>": "<next bid size>", ... } ] },
+  //   "<epoch_ms>" ] ] ]
+
+  const [marketId, _seq, updates] = obj;
+  const up0 = updates[0];
+  const up0type = up0[0];
+
+  if (up0type === "i") {
+    // normalize to almost the same data structure as returned by booksEndpoint
+    // keep numbers as strings for now, until we ensure no precision loss with
+    // floats
+    const books = up0[1];
+    const [rawAsks, rawBids] = books["orderBook"];
+    const asks = entries(rawAsks);
+    asks.sort(firstStrAsc);
+    const bids = entries(rawBids);
+    bids.sort(firstStrDesc);
+    const pair = books["currencyPair"];
+    const [base, quote] = pair.split("_");
+    const market = { id: marketId, base, quote, label: (quote + "/" + base) };
+
+    if (updates.length > 1) {
+      console.warn(">1 item in the initial book snapshot message:", obj);
+    }
+
+    return { market, asks, bids };
+  } else if (up0type === "o") {
+    // ignore incremental updates for now
+  } else {
+    console.warn("unknown book update type:", obj);
+  }
+  return null
+}
+
+wsEndpoint.onbooksupdate = (obj) => {
+  const books = convertBooksUpdateWs(obj);
+  if (books) {
+    // unsubscribe as soon as we have valid books to save traffic
+    disableBookUpdateWs(books.market.id);
+    callMaybe(onbooksupdate, books);
+  }
 }
 
 
