@@ -54,8 +54,8 @@ function promiseLoop(loop) {
 
 function setPromiseLoopEnabled(loop, enabled) {
   loop.enabled = enabled;
-  console.log("%s %s every %d ms",
-              enabled ? "starting" : "stopping", loop.name, loop.interval);
+  console.log("autoupdate: %s %s every %d ms",
+              loop.name, enabled ? "starting" : "stopping", loop.interval);
   if (enabled) {
     promiseLoop(loop);
   } else {
@@ -81,7 +81,7 @@ class RequestIgnored extends Error {}
 // must always return a Promise to enable chained Promise fns
 function asyncFetchJson(endpoint, params) {
   if (endpoint.fetching) {
-    const reason = "ignoring fetch request until existing one finishes";
+    const reason = "http: ignoring fetch request until existing one finishes";
     console.log(reason);
     return Promise.reject(new RequestIgnored(reason));
   }
@@ -95,12 +95,12 @@ function asyncFetchJson(endpoint, params) {
         // start async reading and parsing as JSON
         return response.json();
       } else {
-        console.log("%s response not ok", endpoint.name);
+        console.log("http: %s response not ok", endpoint.name);
         throw new Error("Failed to fetch, status " + response.status);
       }
     })
     .finally(() => {
-      console.log("%s request took %d ms", endpoint.name, now() - start);
+      console.log("http: %s fetched in %d ms", endpoint.name, now() - start);
       endpoint.fetching = false;
     });
   return promise;
@@ -115,7 +115,7 @@ function skipFetchCancels(e) {
   if (e instanceof RequestIgnored) {
     return;
   } else if (e.name === "AbortError") {
-    console.log("request aborted");
+    console.log("http: request aborted");
     return;
   } else {
     throw e;
@@ -150,30 +150,30 @@ function resetCloseTimer(endpoint, delay) {
   clearTimeout(endpoint.closeTimer);
   if (delay > 0) {
     endpoint.closeTimer = setTimeout(() => {
-      console.log("ws auto-closing after no outgoing messages in %d ms",
+      console.log("ws: auto-closing after no outgoing messages in %d ms",
                   endpoint.noSendTimeout);
       closeWs(endpoint);
     }, delay);
   } else {
     endpoint.closeTimer = null;
-    console.log("ws auto-closing disabled");
+    console.log("ws: auto-closing disabled");
   }
 }
 
 function openWs(endpoint) {
   callMaybe(endpoint.onpreopen);
-  console.time("ws connected");
-  console.log("ws connecting to", endpoint.url);
+  console.time("ws: connected");
+  console.log("ws: connecting to", endpoint.url);
   const ws = new WebSocket(endpoint.url);
 
   ws.onerror = (evt) => {
-    console.log("ws error:", evt);
+    console.log("ws: error:", evt);
     callMaybe(endpoint.onerror, evt);
   };
 
   // clean up any endpoint state here
   ws.onclose = (evt) => {
-    console.log("ws disconnected from", endpoint.url);
+    console.log("ws: disconnected from", endpoint.url);
     // NOTE: `endpoint.queue` is not cleared here, meaning any queued messages
     // will be sent when a new `WebSocket` is opened.
     endpoint.ws = null;
@@ -185,14 +185,14 @@ function openWs(endpoint) {
 
   ws.onopen = (evt) => {
     // todo: this timer may never complete if open fails
-    console.timeEnd("ws connected");
+    console.timeEnd("ws: connected");
     // copy and reset shared queue to avoid infinite loops when disconnected
     const oldQueue = endpoint.queue;
     endpoint.queue = [];
 
     // drain queue
     // todo: maybe drop messages that are no longer valid (e.g. duplicates)
-    console.log("ws sending %d queued messages", oldQueue.length);
+    console.log("ws: sending %d queued messages", oldQueue.length);
     for (const obj of oldQueue) { sendWs(endpoint, obj); }
     
     resetCloseTimer(endpoint, endpoint.noSendTimeout);
@@ -213,13 +213,13 @@ function sendWs(endpoint, obj) {
   if (!ws || ws.readyState !== WebSocket.OPEN) {
     queue.push(obj);
     if (queue.length > 5) {
-      console.warn("ws queue size is now", queue.length);
+      console.warn("ws: queue size is now", queue.length);
     }
     openWs(endpoint);
     return;
   }
   const message = JSON.stringify(obj);
-  console.log("ws sending:", message);
+  console.log("ws: sending:", message);
   ws.send(message);
   resetCloseTimer(endpoint, endpoint.noSendTimeout);
 }
@@ -257,7 +257,7 @@ function asyncFetchPoloniex(endpoint, params) {
   return asyncFetchJson(endpoint, params)
     .then((apiResp) => {
       if (apiResp.error) {
-        throw new Error("Poloniex API error: " + apiResp.error);
+        throw new Error("polo.http: API error: " + apiResp.error);
       }
       return apiResp;
     });
@@ -280,7 +280,7 @@ wsEndpoint.onbooksupdate = undefined;
 
 wsEndpoint.onmessage = (obj) => {
   if (obj.error) {
-    throw new Error("Poloniex WS API error: " + obj.error);
+    throw new Error("polo.ws: API error: " + obj.error);
   }
 
   const [chanobj, seq] = obj;
@@ -290,7 +290,7 @@ wsEndpoint.onmessage = (obj) => {
   // (2021-10-02)
   const channel = Number(chanobj);
   if (!Number.isInteger(channel)) {
-    throw new Error("not an integer channel id: " + chanobj);
+    throw new Error("polo.ws: not an integer channel id: " + chanobj);
   }
 
   switch (channel) {
@@ -299,21 +299,21 @@ wsEndpoint.onmessage = (obj) => {
       break;
     case POLO_WS_CHAN_TICKER:
       if (seq === 1) {
-        console.log("ws ticker updates subscribed");
+        console.log("polo.ws: ticker updates subscribed");
         callMaybe(wsEndpoint.ontickersubscribed);
       } else if (seq === 0) {
-        console.log("ws ticker updates unsubscribed");
+        console.log("polo.ws: ticker updates unsubscribed");
         callMaybe(wsEndpoint.ontickerunsubscribed);
       } else {
         callMaybe(wsEndpoint.ontickerupdate, obj);
       }
       break;
     case POLO_WS_CHAN_ACC_NTFNS:
-      console.warn("ws Account Notifications messages are not supported yet:",
+      console.warn("polo.ws: Acc Notifications msgs are not supported yet:",
                    JSON.stringify(obj));
       break;
     case POLO_WS_CHAN_24H_VOLUME:
-      console.warn("ws 24 Hour Exchange Volume messages are not supported yet:",
+      console.warn("polo.ws: 24H Exchange Volume msgs are not supported yet:",
                    JSON.stringify(obj));
       break;
     default:
@@ -321,9 +321,9 @@ wsEndpoint.onmessage = (obj) => {
       if (seq === 1) {
         // books subscription acknowledgement is not sent (API bug?), but
         // let's handle it just in case (2021-10-03)
-        console.log("ws books for pair %d subscribed", channel);
+        console.log("polo.ws: books for pair %d subscribed", channel);
       } else if (seq === 0) {
-        console.log("ws books for pair %d unsubscribed", channel);
+        console.log("polo.ws: books for pair %d unsubscribed", channel);
       } else {
         callMaybe(wsEndpoint.onbooksupdate, obj);
       }
@@ -351,7 +351,7 @@ let metWsBooksLastSubscribed;
 function bumpWsHeartbeatMetrics() {
   metWsHeartbeats += 1;
   if (metWsHeartbeats % 20 === 0) {
-    console.log("ws heartbeats: %d", metWsHeartbeats);
+    console.log("polo.ws: heartbeats: %d", metWsHeartbeats);
   }
 }
 
@@ -359,12 +359,14 @@ function bumpWsTickerPriceMetrics(prevPrice, lastPrice) {
   if (prevPrice === lastPrice) {
     metWsTickerPriceUnchanged += 1;
     if (metWsTickerPriceUnchanged % 500 === 0) {
-      console.log("ws ticker price unchanged: %d", metWsTickerPriceUnchanged);
+      console.log("polo.ws: ticker price unchanged: %d",
+                  metWsTickerPriceUnchanged);
     }
   } else {
     metWsTickerPriceChanges += 1;
     if (metWsTickerPriceChanges % 50 === 0) {
-      console.log("ws ticker price changes: %d", metWsTickerPriceChanges);
+      console.log("polo.ws: ticker price changes: %d",
+                  metWsTickerPriceChanges);
     }
   }
 }
@@ -407,7 +409,7 @@ function marketId(str) {
   // todo: rework to not use the sloppy parseInt that does "1a" => 1
   const i = Number.parseInt(str);
   if (!isMarketId(i)) {
-    throw new Error("not a market id: " + str);
+    throw new Error("model: not a market id: " + str);
   }
   return i;
 }
@@ -445,10 +447,10 @@ function createMarkets(tickerResp) {
   }
 
   if (deactivated.length > 0) {
-    console.log("detected deactivated markets:", deactivated.join(", "));
+    console.log("model: markets deactivated:", deactivated.join(", "));
   }
 
-  console.log("markets Map created in %.1f ms", now() - start);
+  console.log("model: markets created in %.1f ms", now() - start);
   return markets;
 }
 
@@ -500,7 +502,7 @@ function marketsDiffHttp(markets, tickerResp) {
     removals.set(id, markets.get(id));
   }
 
-  console.log("markets diff computed in %.1f ms", now() - start);
+  console.log("model: markets diff computed in %.1f ms", now() - start);
   return marketsDiff(changes, additions, removals);
 }
 
@@ -534,7 +536,7 @@ function marketsDiffWs(markets, updates) {
   }
 
   if (updates.length > 2 + 1) {
-    console.warn("got more than 1 ticker update:", (updates.length - 2));
+    console.warn("polo.ws: got >1 ticker update:", (updates.length - 2));
   }
   return marketsDiff(changes, additions, removals);
 }
@@ -551,20 +553,20 @@ function updateMarkets(markets, diff) {
       market[key] = n;
       if (key === "isActive") {
         if (n === true) {
-          console.log("market activated:", market.label);
+          console.log("model: market activated:", market.label);
         } else {
-          console.log("market deactivated:", market.label);
+          console.log("model: market deactivated:", market.label);
         }
       }
     }
   }
   for (const [mid, newMarket] of diff.additions) {
     markets.set(mid, newMarket);
-    console.log("market added:", JSON.stringify(newMarket));
+    console.log("model: market added:", JSON.stringify(newMarket));
   }
   for (const [mid, removedMarket] of diff.removals) {
     markets.delete(mid);
-    console.log("market removed:", JSON.stringify(removedMarket));
+    console.log("model: market removed:", JSON.stringify(removedMarket));
   }
   // assuming `diff` was checked earler to be not empty
   callMaybe(onmarketsupdate, { markets, diff, aggregateMetrics: true });
@@ -593,15 +595,15 @@ function asyncUpdateMarkets() {
 // consume Poloniex API event and produce data model event
 wsEndpoint.ontickerupdate = (tickerUpdate) => {
   if (!markets) {
-    throw new Error("markets data not initialized");
+    throw new Error("model: markets not initialized");
   }
   updateMarkets(markets, marketsDiffWs(markets, tickerUpdate));
 };
 
 function enableMarketsUpdateWs() {
-  console.log("ws subscribing to market updates");
+  console.log("model: subscribing to market ws updates");
   if (!markets) {
-    console.log("fetching markets data for the first time");
+    console.log("model: fetching markets for the first time");
     // Trigger markets fetch, schedule another attempt and return.
     // If markets fetch fails, subscription will not happen and the user will
     // need to try again.
@@ -672,7 +674,7 @@ function disableBookUpdateWs(marketId) {
 
 function bumpBooksMetrics(dur, bidslen, askslen, label) {
   const itemPerMs = (bidslen + askslen) / dur;
-  console.log("books %s in %.1f ms: %d bids, %d asks, %.1f item/ms",
+  console.log("%s in %.1f ms: %d bids, %d asks, %.1f item/ms",
               label, dur, bidslen, askslen, itemPerMs);
 }
 
@@ -691,7 +693,7 @@ function convertBooksUpdateWs(obj) {
 
   if (!updates) {
     // todo: understand how to handle this
-    console.warn("empty book updates?", obj);
+    console.warn("polo.ws: empty book updates?", obj);
     return null;
   }
 
@@ -700,7 +702,7 @@ function convertBooksUpdateWs(obj) {
 
   if (up0type === "i") {
     const booksInitDur = now() - metWsBooksLastSubscribed;
-    console.log("ws read and parsed initial books in %.1f ms", booksInitDur);
+    console.log("polo.ws: read+parsed initial books in %.1f ms", booksInitDur);
     const start = now();
     // normalize to almost the same data structure as returned by booksEndpoint
     // keep numbers as strings for now, until we ensure no precision loss with
@@ -714,14 +716,15 @@ function convertBooksUpdateWs(obj) {
     const market = createMarket(marketId, rawBooks["currencyPair"]);
 
     if (updates.length > 1) {
-      console.warn(">1 item in the initial book snapshot message:", obj);
+      console.warn("polo.ws: >1 item in the initial book snapshot:", obj);
     }
-    bumpBooksMetrics(now() - start, bids.length, asks.length, "model created");
+    bumpBooksMetrics(now() - start, bids.length, asks.length,
+                     "model: books created");
     return { market, asks, bids };
   } else if (up0type === "o") {
     // ignore incremental updates for now
   } else {
-    console.warn("unknown book update type:", obj);
+    console.warn("polo.ws: unknown book update type:", obj);
   }
   return null
 }
@@ -737,7 +740,7 @@ wsEndpoint.onbooksupdate = (obj) => {
 
 function updateSelectedBooksWs() {
   if (!isMarketId(selectedMarketId)) {
-    console.log("skipping books update until a market is selected");
+    console.log("model: skipping books update until a market is selected");
     return;
   }
   enableBookUpdateWs(selectedMarketId);
@@ -791,7 +794,7 @@ function createMarketsTable(markets) {
   marketIdToPriceCell = priceCellIndex;
 
   metMarketsTableLastUpdated = now();
-  console.log("markets table created in %.1f ms", now() - start);
+  console.log("UI: markets table created in %.1f ms", now() - start);
 }
 
 function bumpMarketsTableMetrics(updateStart, changesCount, aggregate) {
@@ -807,7 +810,7 @@ function bumpMarketsTableMetrics(updateStart, changesCount, aggregate) {
     metMarketsTableSinceLastReport += sinceLastUpd;
     if (metMarketsTableSinceLastReport > metMarketsTableReportEvery) {
       const avgBU = metMarketsTableSinceLastReport / metMarketsTableUpdates;
-      console.log("markets table: a total of %.1f ms spent while applying %d"
+      console.log("UI: markets table: spent a total %.1f ms while applying %d"
                   + " updates with %d changes, avg %.1f ms between updates,"
                   + " %d ms since last report",
                   metMarketsTableUpdateDuration, metMarketsTableUpdates,
@@ -818,7 +821,7 @@ function bumpMarketsTableMetrics(updateStart, changesCount, aggregate) {
       metMarketsTableSinceLastReport = 0;
     }
   } else {
-    console.log("markets table updated in %.1f ms with %d changes,"
+    console.log("UI: markets table updated in %.1f ms with %d changes,"
                 + " %d ms since last update",
                 updateDur, changesCount, sinceLastUpd);
   }
@@ -826,7 +829,7 @@ function bumpMarketsTableMetrics(updateStart, changesCount, aggregate) {
 
 function updateMarketsTable(diff, aggregateMetrics) {
   if (!diff) {
-    throw new Error("updateMarketsTable called with empty diff");
+    throw new Error("UI: updateMarketsTable called with empty diff");
   }
   const updateStart = now();
   const changes = diff.changes;
@@ -930,7 +933,7 @@ function updateBooksUi(books) {
   setTickers(bidsTable, market.quote);
   updateBooksBtn.disabled = false;
   updateBooksWsBtn.disabled = false;
-  bumpBooksMetrics(now() - start, bids.length, asks.length, "UI updated");
+  bumpBooksMetrics(now() - start, bids.length, asks.length, "UI: books updated");
 }
 
 // ### UI / other / state
