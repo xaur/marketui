@@ -319,6 +319,8 @@ wsEndpoint.onmessage = (obj) => {
     default:
       // no matches with any of the above => channel is a currency pair id
       if (seq === 1) {
+        // books subscription acknowledgement is not sent (API bug?), but
+        // let's handle it just in case (2021-10-03)
         console.log("ws books for pair %d subscribed", channel);
       } else if (seq === 0) {
         console.log("ws books for pair %d unsubscribed", channel);
@@ -344,10 +346,11 @@ function disconnect() {
 let metWsHeartbeats = 0;
 let metWsTickerPriceChanges = 0;
 let metWsTickerPriceUnchanged = 0;
+let metWsBooksLastSubscribed;
 
 function bumpWsHeartbeatMetrics() {
   metWsHeartbeats += 1;
-  if (metWsHeartbeats % 10 === 0) {
+  if (metWsHeartbeats % 20 === 0) {
     console.log("ws heartbeats: %d", metWsHeartbeats);
   }
 }
@@ -660,10 +663,17 @@ function asyncUpdateSelectedBooks() {
 
 function enableBookUpdateWs(marketId) {
   setSubscriptionEnabledWs(marketId, true);
+  metWsBooksLastSubscribed = now(); // will lag until WS is opened
 }
 
 function disableBookUpdateWs(marketId) {
   setSubscriptionEnabledWs(marketId, false);
+}
+
+function bumpBooksMetrics(dur, bidslen, askslen, label) {
+  const itemPerMs = (bidslen + askslen) / dur;
+  console.log("books %s in %.1f ms: %d bids, %d asks, %.1f item/ms",
+              label, dur, bidslen, askslen, itemPerMs);
 }
 
 function convertBooksUpdateWs(obj) {
@@ -682,6 +692,9 @@ function convertBooksUpdateWs(obj) {
   const up0type = up0[0];
 
   if (up0type === "i") {
+    const booksInitDur = now() - metWsBooksLastSubscribed;
+    console.log("ws read and parsed initial books in %.1f ms", booksInitDur);
+    const start = now();
     // normalize to almost the same data structure as returned by booksEndpoint
     // keep numbers as strings for now, until we ensure no precision loss with
     // floats
@@ -696,7 +709,7 @@ function convertBooksUpdateWs(obj) {
     if (updates.length > 1) {
       console.warn(">1 item in the initial book snapshot message:", obj);
     }
-
+    bumpBooksMetrics(now() - start, bids.length, asks.length, "model created");
     return { market, asks, bids };
   } else if (up0type === "o") {
     // ignore incremental updates for now
@@ -900,14 +913,17 @@ function setTickers(table, quote) {
 }
 
 function updateBooksUi(books) {
+  const start = now();
   asksWidget.scrollTop = 0;
   bidsWidget.scrollTop = 0;
-  createTable(asksTbody, books.asks, [1, 0]);
-  createTable(bidsTbody, books.bids);
-  setTickers(asksTable, books.market.quote);
-  setTickers(bidsTable, books.market.quote);
+  const { market, bids, asks } = books;
+  createTable(asksTbody, asks, [1, 0]);
+  createTable(bidsTbody, bids);
+  setTickers(asksTable, market.quote);
+  setTickers(bidsTable, market.quote);
   updateBooksBtn.disabled = false;
   updateBooksWsBtn.disabled = false;
+  bumpBooksMetrics(now() - start, bids.length, asks.length, "UI updated");
 }
 
 // ### UI / other / state
