@@ -409,7 +409,7 @@ function marketId(str) {
   return i;
 }
 
-// convert ticker data we care about
+// convert only those ticker fields we want to track changes for
 function marketUpdate(tickerItem) {
   return {
     isActive: (tickerItem.isFrozen !== "1"),
@@ -417,13 +417,12 @@ function marketUpdate(tickerItem) {
   }
 }
 
-function createMarket(tickerItem, name) {
-  const m = marketUpdate(tickerItem);
-  m.id = tickerItem.id;
+function createMarket(id, name, tickerItem) {
   const [base, quote] = name.split("_");
-  m.base = base;
-  m.quote = quote;
-  m.label = quote + "/" + base;
+  const m = { id, base, quote, label: quote + "/" + base };
+  if (tickerItem) {
+    Object.assign(m, marketUpdate(tickerItem));
+  }
   return m;
 }
 
@@ -434,7 +433,8 @@ function createMarkets(tickerResp) {
   const markets = new Map();
   const deactivated = [];
   for (const marketName in tickerResp) {
-    const market = createMarket(tickerResp[marketName], marketName);
+    const tickerItem = tickerResp[marketName];
+    const market = createMarket(tickerItem.id, marketName, tickerItem);
     markets.set(market.id, market);
     if (!market.isActive) {
       deactivated.push(market.label);
@@ -449,6 +449,8 @@ function createMarkets(tickerResp) {
   return markets;
 }
 
+// change will only contain keys found in `update`, i.e. the `update` arg
+// implicitly filters the result
 function marketChange(market, update) {
   let change = null;
   for (const key in update) {
@@ -486,7 +488,8 @@ function marketsDiffHttp(markets, tickerResp) {
       if (c) { changes.set(mid, c); }
       oldIds.delete(mid);
     } else { // added item
-      additions.set(mid, createMarket(tickerItem, marketName));
+      const newMarket = createMarket(mid, marketName, tickerItem);
+      additions.set(mid, newMarket);
     }
   }
 
@@ -517,14 +520,7 @@ function marketsDiffWs(markets, updates) {
 
     const market = markets.get(mid);
     if (!market) { // added market
-      const newMarket = {
-        id: mid,
-        label: "UNKNOWN/UNKNOWN",
-        base: "UNKNOWN",
-        quote: "UNKNOWN",
-        last: marketUpd.last,
-        isActive: marketUpd.isActive,
-      };
+      const newMarket = createMarket(mid, "UNKNOWN_UNKNOWN", marketUpd);
       additions.set(mid, newMarket);
       continue;
     }
@@ -689,15 +685,13 @@ function convertBooksUpdateWs(obj) {
     // normalize to almost the same data structure as returned by booksEndpoint
     // keep numbers as strings for now, until we ensure no precision loss with
     // floats
-    const books = up0[1];
-    const [rawAsks, rawBids] = books["orderBook"];
+    const rawBooks = up0[1];
+    const [rawAsks, rawBids] = rawBooks["orderBook"];
     const asks = entries(rawAsks);
     asks.sort(firstStrAsc);
     const bids = entries(rawBids);
     bids.sort(firstStrDesc);
-    const pair = books["currencyPair"];
-    const [base, quote] = pair.split("_");
-    const market = { id: marketId, base, quote, label: (quote + "/" + base) };
+    const market = createMarket(marketId, rawBooks["currencyPair"]);
 
     if (updates.length > 1) {
       console.warn(">1 item in the initial book snapshot message:", obj);
