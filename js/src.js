@@ -721,6 +721,14 @@ wsEndpoint.onbooksupdate = (obj) => {
   }
 }
 
+function updateSelectedBooksWs() {
+  if (!isMarketId(selectedMarketId)) {
+    console.log("skipping books update until a market is selected");
+    return;
+  }
+  enableBookUpdateWs(selectedMarketId);
+}
+
 
 // ## UI management
 
@@ -875,6 +883,7 @@ const bidsWidget = document.getElementById("bids-widget");
 const bidsTable = document.getElementById("bids-table");
 const bidsTbody = document.getElementById("bids-tbody");
 const updateBooksBtn = document.getElementById("update-books-btn");
+const updateBooksWsBtn = document.getElementById("update-books-ws-btn");
 
 // ### UI / books / methods
 
@@ -904,6 +913,7 @@ function updateBooksUi(books) {
   setTickers(asksTable, books.market.quote);
   setTickers(bidsTable, books.market.quote);
   updateBooksBtn.disabled = false;
+  updateBooksWsBtn.disabled = false;
 }
 
 // ### UI / other / state
@@ -980,6 +990,8 @@ function initUi() {
 
   marketsWsBtn.disabled = false;
   marketsWsBtn.onclick = enableMarketsUpdateWs;
+
+  updateBooksWsBtn.onclick = updateSelectedBooksWs;
 
   marketsTbody.onclick = marketsTableClick;
 
