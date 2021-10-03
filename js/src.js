@@ -264,6 +264,10 @@ wsEndpoint.ontickersubscribed = undefined;
 wsEndpoint.ontickerunsubscribed = undefined;
 
 wsEndpoint.onmessage = (obj) => {
+  if (obj.error) {
+    throw new Error("Poloniex WS API error: " + obj.error);
+  }
+
   const [chanobj, seq] = obj;
 
   // normalize channel id to integer to workaround an API bug where unsubscribe
