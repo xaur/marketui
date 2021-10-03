@@ -251,7 +251,9 @@ function asyncFetchPoloniex(endpoint, params) {
 
 // ### Poloniex API / WebSocket
 
+const POLO_WS_CHAN_ACC_NTFNS = 1000;
 const POLO_WS_CHAN_TICKER = 1002;
+const POLO_WS_CHAN_24H_VOLUME = 1003;
 const POLO_WS_CHAN_HEARTBEAT = 1010;
 
 const wsEndpoint = createWsEndpoint("wss://api2.poloniex.com");
@@ -286,6 +288,14 @@ wsEndpoint.onmessage = (obj) => {
       } else {
         callMaybe(wsEndpoint.ontickerupdate, obj);
       }
+      break;
+    case POLO_WS_CHAN_ACC_NTFNS:
+      console.warn("ws Account Notifications messages are not supported yet:",
+                   JSON.stringify(obj));
+      break;
+    case POLO_WS_CHAN_24H_VOLUME:
+      console.warn("ws 24 Hour Exchange Volume messages are not supported yet:",
+                   JSON.stringify(obj));
       break;
     default:
       console.warn("received data of unknown type:", JSON.stringify(obj));
