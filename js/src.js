@@ -255,9 +255,12 @@ const POLO_WS_CHAN_TICKER = 1002;
 const POLO_WS_CHAN_TICKER_STR = "1002";
 const POLO_WS_CHAN_HEARTBEAT = 1010;
 
-// for now, cram Poloniex-specific thing (`ontickerupdate`) into this generic
-// WS endpoint object
 const wsEndpoint = createWsEndpoint("wss://api2.poloniex.com");
+
+// for now, cram Poloniex-specific events into this generic WS endpoint object
+wsEndpoint.ontickerupdate = undefined;
+wsEndpoint.ontickersubscribed = undefined;
+wsEndpoint.ontickerunsubscribed = undefined;
 
 wsEndpoint.onmessage = (obj) => {
   const [channel, seq] = obj;
@@ -270,8 +273,10 @@ wsEndpoint.onmessage = (obj) => {
     case POLO_WS_CHAN_TICKER_STR:
       if (seq === 1) {
         console.log("ws ticker updates subscribed");
+        callMaybe(wsEndpoint.ontickersubscribed);
       } else if (seq === 0) {
         console.log("ws ticker updates unsubscribed");
+        callMaybe(wsEndpoint.ontickerunsubscribed);
       } else {
         callMaybe(wsEndpoint.ontickerupdate, obj);
       }
@@ -568,6 +573,10 @@ function enableMarketsUpdateWs() {
   setSubscriptionEnabledWs(POLO_WS_CHAN_TICKER, true);
 }
 
+function disableMarketsUpdateWs() {
+  setSubscriptionEnabledWs(POLO_WS_CHAN_TICKER, false);
+}
+
 // ### Data model / books / state
 
 let onbooksupdate; // function, event handler
@@ -799,7 +808,7 @@ function updateBooksUi(books) {
 // ### UI / other / state
 
 const autoupdateToggle = document.getElementById("autoupdate-toggle");
-const connectWsBtn = document.getElementById("connect-ws-btn");
+const marketsWsBtn = document.getElementById("markets-ws-btn");
 
 // ### UI / other / methods
 
@@ -837,17 +846,24 @@ function initUi() {
     asyncUpdateSelectedBooks();
   };
 
+  // generic WS endpoint events
   wsEndpoint.onpreopen = () => {
-    connectWsBtn.value = "cancel connect ws";
-    connectWsBtn.onclick = disconnect;
+    marketsWsBtn.value = "cancel connect ws";
+    marketsWsBtn.onclick = disconnect;
   };
   wsEndpoint.onclose = () => {
-    connectWsBtn.value = "connect ws";
-    connectWsBtn.onclick = enableMarketsUpdateWs;
+    marketsWsBtn.value = "markets ws on";
+    marketsWsBtn.onclick = enableMarketsUpdateWs;
   };
-  wsEndpoint.onopen = () => {
-    connectWsBtn.value = "disconnect ws";
-    connectWsBtn.onclick = disconnect;
+
+  // Poloniex WS endpoint events
+  wsEndpoint.ontickersubscribed = () => {
+    marketsWsBtn.value = "markets ws off";
+    marketsWsBtn.onclick = disableMarketsUpdateWs;
+  };
+  wsEndpoint.ontickerunsubscribed = () => {
+    marketsWsBtn.value = "markets ws on";
+    marketsWsBtn.onclick = enableMarketsUpdateWs;
   };
 
   // consume data model events and update UI
@@ -861,8 +877,8 @@ function initUi() {
 
   onbooksupdate = updateBooksUi;
 
-  connectWsBtn.disabled = false;
-  connectWsBtn.onclick = enableMarketsUpdateWs;
+  marketsWsBtn.disabled = false;
+  marketsWsBtn.onclick = enableMarketsUpdateWs;
 
   marketsTbody.onclick = marketsTableClick;
 
