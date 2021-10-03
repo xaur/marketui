@@ -691,6 +691,7 @@ function bumpMarketsTableMetrics(updateStart, changesCount, aggregate) {
   const noww = now();
   const updateDur = noww - updateStart;
   const sinceLastUpd = noww - metMarketsTableLastUpdated;
+  metMarketsTableLastUpdated = noww;
 
   if (aggregate) {
     metMarketsTableUpdates += 1;
@@ -714,8 +715,6 @@ function bumpMarketsTableMetrics(updateStart, changesCount, aggregate) {
                 + " %d ms since last update",
                 updateDur, changesCount, sinceLastUpd);
   }
-
-  metMarketsTableLastUpdated = now;
 }
 
 function updateMarketsTable(diff, aggregateMetrics) {
