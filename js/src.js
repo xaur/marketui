@@ -252,7 +252,6 @@ function asyncFetchPoloniex(endpoint, params) {
 // ### Poloniex API / WebSocket
 
 const POLO_WS_CHAN_TICKER = 1002;
-const POLO_WS_CHAN_TICKER_STR = "1002";
 const POLO_WS_CHAN_HEARTBEAT = 1010;
 
 const wsEndpoint = createWsEndpoint("wss://api2.poloniex.com");
@@ -263,14 +262,21 @@ wsEndpoint.ontickersubscribed = undefined;
 wsEndpoint.ontickerunsubscribed = undefined;
 
 wsEndpoint.onmessage = (obj) => {
-  const [channel, seq] = obj;
+  const [chanobj, seq] = obj;
+
+  // normalize channel id to integer to workaround an API bug where unsubscribe
+  // acknowledgements contain channel id as a string instead of an integer
+  // (2021-10-02)
+  const channel = Number(chanobj);
+  if (!Number.isInteger(channel)) {
+    throw new Error("not an integer channel id: " + chanobj);
+  }
+
   switch (channel) {
     case POLO_WS_CHAN_HEARTBEAT:
       bumpWsHeartbeatMetrics();
       break;
     case POLO_WS_CHAN_TICKER:
-    // fallthrough; workaround occasional strings - API bug (2021-10-02)
-    case POLO_WS_CHAN_TICKER_STR:
       if (seq === 1) {
         console.log("ws ticker updates subscribed");
         callMaybe(wsEndpoint.ontickersubscribed);
@@ -359,6 +365,7 @@ function isMarketId(id) {
 }
 
 function marketId(str) {
+  // todo: rework to not use the sloppy parseInt that does "1a" => 1
   const i = Number.parseInt(str);
   if (!isMarketId(i)) {
     throw new Error("not a market id: " + str);
