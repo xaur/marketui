@@ -1,5 +1,6 @@
 html {
   font-family: var(--font-family);
+  font-size: var(--font-size);
 }
 
 .border {
@@ -12,7 +13,7 @@ table {
 }
 
 table th {
-  background-color: var(--color-border);
+  background-color: var(--color-bg-header);
   /* somehow border doesn't work on position: sticky so hack it around */
   box-shadow: 0 0 0 1px var(--color-border-light);
 }

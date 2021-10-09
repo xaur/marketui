@@ -1,7 +1,9 @@
 :root {
   --font-family: sans-serif;
+  --font-size: unset;
 
-  --color-border: #b3d5d6;
+  --color-bg-header: #b3d5d6;
+  --color-border: var(--color-bg-header);
   --color-border-light: #e1eeef;
   --color-bg-hover: #dae7e6;
   --color-bg-selected: #fbf4c7;
