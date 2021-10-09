@@ -7,8 +7,11 @@
  *    New file name must be exactly `theme.user.css` to enable smooth upgrades
  *    without conflicts (since it is ignored by Git via `.gitignore`).
  *
- * 2. Play with values in your `theme.user.css` file. Follow tips in comments.
- *    Refresh the page to see updates (F5 or Ctrl-F5).
+ * 2. Adjust values in your `theme.user.css` file.
+ *
+ *    First, uncomment the line you want to change by removing /* and */
+/*    before and after it. Then, follow the comments and find the value you
+ *    like. Refresh the page to see updates (F5 or Ctrl-F5).
  *
  * 3. Sometimes you will need to update your `theme.user.css` file to keep up
  *    with project's changes.
@@ -33,7 +36,9 @@
    *
    * More at: https://developer.mozilla.org/en-US/docs/Web/CSS/font-family
    */
+/*
   --font-family: sans-serif;
+ */
 
   /* Font size used throughout the app.
    *
@@ -45,7 +50,9 @@
    *
    * More at: https://developer.mozilla.org/en-US/docs/Web/CSS/font-size
    */
+/*
   --font-size: 14px;
+ */
 
   /* Colors.
    *
@@ -55,14 +62,30 @@
    *
    * See https://developer.mozilla.org/en-US/docs/Web/CSS/color_value
    */
+/*
   --color-bg-header: #b3d5d6;
+ */
+/*
   --color-border: var(--color-bg-header);
+ */
+/*
   --color-border-light: #e1eeef;
+ */
+/*
   --color-bg-hover: #dae7e6;
+ */
+/*
   --color-bg-selected: #fbf4c7;
+ */
+/*
   --color-inactive: #91bbbc;
+ */
+/*
   --color-positive: #ceebd3;
+ */
+/*
   --color-negative: #f6d4d1;
+ */
 
   /* Cursors.
    *
@@ -70,7 +93,9 @@
    *
    * More at https://developer.mozilla.org/en-US/docs/Web/CSS/cursor
    */
+/*
   --cursor-hover: pointer;
+ */
 
   /* Animations.
    *
@@ -78,5 +103,7 @@
    *
    * See https://developer.mozilla.org/en-US/docs/Web/CSS/time
    */
+/*
   --anim-duration-cell-change: 2s;
+ */
 }
