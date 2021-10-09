@@ -1,3 +1,10 @@
+/* Default theme
+ *
+ * This theme is inspired by Poloniex's theme before the redesign in July 2020.
+ *
+ * Make sure to update `sample.theme.user.js` when updating this file.
+ */
+
 :root {
   --font-family: sans-serif;
   --font-size: unset;

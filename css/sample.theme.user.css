@@ -1,0 +1,82 @@
+/* User theme template
+ *
+ * Usage:
+ *
+ * 1. Copy this `sample.theme.user.css` file into `theme.user.css` file.
+ *
+ *    New file name must be exactly `theme.user.css` to enable smooth upgrades
+ *    without conflicts (since it is ignored by Git via `.gitignore`).
+ *
+ * 2. Play with values in your `theme.user.css` file. Follow tips in comments.
+ *    Refresh the page to see updates (F5 or Ctrl-F5).
+ *
+ * 3. Sometimes you will need to update your `theme.user.css` file to keep up
+ *    with project's changes.
+ *
+ *    One way to check that you need to do it is to compare your
+ *    `theme.user.css` file and `sample.theme.user.css` with a file comparison
+ *    tool like Meld (https://meldmerge.org/). If only values differ, you don't
+ *    need to do anything. If you see added, removed, or changed property
+ *    _names_, update your file accordingly.
+ */
+
+:root {
+  /* Font family used throughout the app.
+   *
+   * Specify one or more font family names, starting with highest priority:
+   * 
+   *     --font-family: "Lucida Console", Courier, monospace;
+   *
+   * First available font will be used. It is recommended to end the list with
+   * a generic family name like `serif`, `sans-serif`, `monospace` (without any
+   * quotes) that will be used as a fallback if fonts preceding it are missing.
+   *
+   * More at: https://developer.mozilla.org/en-US/docs/Web/CSS/font-family
+   */
+  --font-family: sans-serif;
+
+  /* Font size used throughout the app.
+   *
+   * Perhaps the easiest is to find the pixel value you like:
+   *
+   *       --font-size: 14px;
+   *
+   * But there are more portable values, e.g. `1.2em`, `12pt`, `120%`, `medium`.
+   *
+   * More at: https://developer.mozilla.org/en-US/docs/Web/CSS/font-size
+   */
+  --font-size: 14px;
+
+  /* Colors.
+   *
+   * There are many ways to specify colors: words like `red`, hex values like
+   * `#ff1515`, RGB values like `rgb(255, 0, 0)`, HSL values like
+   * `hsl(0, 100%, 50%)`, and more.
+   *
+   * See https://developer.mozilla.org/en-US/docs/Web/CSS/color_value
+   */
+  --color-bg-header: #b3d5d6;
+  --color-border: var(--color-bg-header);
+  --color-border-light: #e1eeef;
+  --color-bg-hover: #dae7e6;
+  --color-bg-selected: #fbf4c7;
+  --color-inactive: #91bbbc;
+  --color-positive: #ceebd3;
+  --color-negative: #f6d4d1;
+
+  /* Cursors.
+   *
+   * Common values are `auto`, `default`, `pointer`, `crosshair`, etc.
+   *
+   * More at https://developer.mozilla.org/en-US/docs/Web/CSS/cursor
+   */
+  --cursor-hover: pointer;
+
+  /* Animations.
+   *
+   * Durations can be specified in seconds (`1.5s`) or milliseconds (`1500ms`).
+   *
+   * See https://developer.mozilla.org/en-US/docs/Web/CSS/time
+   */
+  --anim-duration-cell-change: 2s;
+}
