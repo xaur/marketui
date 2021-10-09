@@ -1,9 +1,9 @@
 html {
-  font-family: sans-serif;
+  font-family: var(--font-family);
 }
 
 .border {
-  border: 1px solid #b3d5d6;
+  border: 1px solid var(--color-border);
 }
 
 table {
@@ -12,9 +12,9 @@ table {
 }
 
 table th {
-  background-color: #b3d5d6;
+  background-color: var(--color-border);
   /* somehow border doesn't work on position: sticky so hack it around */
-  box-shadow: 0 0 0 1px #e1eeef;
+  box-shadow: 0 0 0 1px var(--color-border-light);
 }
 
 table.no-col-border th {
@@ -22,7 +22,7 @@ table.no-col-border th {
 }
 
 table td:not(:last-child) {
-  border-right: 1px solid #e1eeef;
+  border-right: 1px solid var(--color-border-light);
 }
 
 /* this must come after the previous `table td` rule */
@@ -31,34 +31,34 @@ table.no-col-border td {
 }
 
 table tr {
-  border-bottom: 1px solid #e1eeef;
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .row-clickable tbody tr:hover {
-  background-color: #dae7e6;
-  cursor: pointer;
+  background-color: var(--color-bg-hover);
+  cursor: var(--cursor-hover);
 }
 
 .row-selected {
-  background-color: #fbf4c7;
+  background-color: var(--color-bg-selected);
 }
 
 .inactive {
-  color: #91bbbc;
+  color: var(--color-inactive);
 }
 
 /* animations */
 
 @keyframes positive-update {
-  from { background-color: #ceebd3; }
+  from { background-color: var(--color-positive); }
 }
 
 @keyframes negative-update {
-  from { background-color: #f6d4d1; }
+  from { background-color: var(--color-negative); }
 }
 
 .changed {
-  animation-duration: 2s;
+  animation-duration: var(--anim-duration-cell-change);
   animation-timing-function: cubic-bezier(.9,.03,.69,.22);
 }
 
