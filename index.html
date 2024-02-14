@@ -39,6 +39,8 @@
     .flexcenter { display: flex; align-items: center; }
     /* disable until polished */
     #markets-ws-btn { display: none; }
+    /* disable until fixed */
+    #autoupdate, #update-books-ws-btn { display: none; }
   </style>
 </head>
 
@@ -53,7 +55,7 @@
     <input id="update-markets-btn" type="button" value="up markets" disabled>
     <input id="update-books-ws-btn" type="button" value="full books ws" disabled>
     <input id="update-books-btn" type="button" value="up books" disabled>
-    <div class="flexcenter">
+    <div id="autoupdate" class="flexcenter">
       <label for="autoupdate-toggle">auto-update</label><input type="checkbox" id="autoupdate-toggle">
     </div>
   </div>

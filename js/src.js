@@ -15,6 +15,18 @@ function entries(obj) {
   return res;
 }
 
+// convert an array of items to an array of (arrays holding pairs)
+function pairs(arr) {
+  if ((arr.length % 2) !== 0) {
+    throw new Error("pairs(arr) expects an array of even length")
+  }
+  const out = [];
+  for (let i = 0; i < arr.length; i += 2) {
+    out.push([arr[i], arr[i + 1]]);
+  }
+  return out;
+}
+
 function format(template, params) {
   let res = template;
   for (const key in params) {
@@ -241,15 +253,32 @@ function closeWs(endpoint) {
 
 // ### Poloniex API / HTTP
 
+// API ~2018 "Legacy API"
 const tickerEndpoint = createEndpoint({
   name: "ticker",
   url: "https://poloniex.com/public?command=returnTicker",
 });
 
+// API 20220801
+// TODO: Correctly migrate ALL features to use this new API.
+const priceEndpoint = createEndpoint({
+  name: "price",
+  url: "https://api.poloniex.com/markets/price",
+});
+
+// API ~2018 "Legacy API"
 const booksEndpoint = createEndpoint({
   name: "books",
   url: "https://poloniex.com/public?command=returnOrderBook&currencyPair={pair}&depth={depth}",
   maxDepth: 100,
+});
+
+// API 20220801
+// TODO: Correctly migrate ALL features to use this new API.
+const books2Endpoint = createEndpoint({
+  name: "books2",
+  url: "https://api.poloniex.com/markets/{symbol}/orderBook?limit={limit}",
+  limit: 150,
 });
 
 // must always return a Promise to enable chained Promise fns
@@ -270,6 +299,7 @@ const POLO_WS_CHAN_TICKER = 1002;
 const POLO_WS_CHAN_24H_VOLUME = 1003;
 const POLO_WS_CHAN_HEARTBEAT = 1010;
 
+// TODO: Correctly migrate ALL features to use newer API 20220801.
 const wsEndpoint = createWsEndpoint("wss://api2.poloniex.com");
 
 // for now, cram Poloniex-specific events into this generic WS endpoint object
@@ -388,7 +418,7 @@ let markets; // Map (Number -> Market)
 // The "markets model" does not have a concept of "selected" (yet), but the
 // widgets (markets table, book tables, document title) read and write it.
 // Keep it in the "markets model" for now.
-let selectedMarketId; // Number
+let selectedMarketId; // String
 let onmarketsupdate; // function, event handler
 let onmarketsreset; // function, event handler
 
@@ -402,19 +432,19 @@ const marketsLoop = createPromiseLoop({
 // ### Data model / markets / methods
 
 function isMarketId(id) {
-  return Number.isInteger(id);
+  // Keep it flexible for now.
+  return (typeof id === 'string' || id instanceof String);
 }
 
-function marketId(str) {
-  // todo: rework to not use the sloppy parseInt that does "1a" => 1
-  const i = Number.parseInt(str);
-  if (!isMarketId(i)) {
-    throw new Error("model: not a market id: " + str);
+function marketId(obj) {
+  if (!isMarketId(obj)) {
+    throw new Error("model: not a market id: " + obj);
   }
-  return i;
+  return obj;
 }
 
 // convert only those ticker fields we want to track changes for
+// API ~2018 "Legacy API"
 function marketUpdate(tickerItem) {
   return {
     isActive: (tickerItem.isFrozen !== "1"),
@@ -422,6 +452,14 @@ function marketUpdate(tickerItem) {
   }
 }
 
+// API 20220801
+function marketUpdatePriceItem(pi) {
+  return {
+    last: pi.price,
+  }
+}
+
+// API ~2018 "Legacy API"
 function createMarket(id, name, tickerItem) {
   const [base, quote] = name.split("_");
   const m = { id, base, quote, label: quote + "/" + base };
@@ -431,7 +469,19 @@ function createMarket(id, name, tickerItem) {
   return m;
 }
 
+// API 20220801
+function createMarketPriceItem(pi) {
+  const id = pi.symbol;
+  const [base, quote] = id.split("_");
+  // TODO: This is the correct meaning of base and quote.
+  // TODO: The correct label is "base/quote". Fix it everywhere else.
+  const m = { id, base, quote, label: base + "/" + quote };
+  Object.assign(m, marketUpdatePriceItem(pi));
+  return m;
+}
+
 // transform ticker response: key it by market id and add display names
+// API ~2018 "Legacy API"
 function createMarkets(tickerResp) {
   const start = now();
 
@@ -451,6 +501,25 @@ function createMarkets(tickerResp) {
   }
 
   console.log("model: markets created in %.1f ms", now() - start);
+  return markets;
+}
+
+// transform ticker response: key it by market id and add display names
+// API 20220801
+// TODO: Dedup with Legacy API
+function createMarkets2(priceResp) {
+  const start = now();
+
+  const markets = new Map();
+  const priceRespCount = priceResp.length;
+  for (let i = 0; i < priceRespCount; i++) {
+    const pi = priceResp[i];
+    const market = createMarketPriceItem(pi);
+    markets.set(market.id, market);
+  }
+
+  console.log("model: " + priceRespCount + " markets created in %.1f ms",
+              now() - start);
   return markets;
 }
 
@@ -478,6 +547,7 @@ function marketsDiff(changes, additions, removals) {
   }
 }
 
+// API ~2018 "Legacy API"
 function marketsDiffHttp(markets, tickerResp) {
   const start = now();
   const changes = new Map(), additions = new Map(), removals = new Map();
@@ -494,6 +564,37 @@ function marketsDiffHttp(markets, tickerResp) {
       oldIds.delete(mid);
     } else { // added item
       const newMarket = createMarket(mid, marketName, tickerItem);
+      additions.set(mid, newMarket);
+    }
+  }
+
+  for (const id of oldIds) { // deleted items
+    removals.set(id, markets.get(id));
+  }
+
+  console.log("model: markets diff computed in %.1f ms", now() - start);
+  return marketsDiff(changes, additions, removals);
+}
+
+// API 20220801
+// TODO: Dedup with Legacy API
+function marketsDiffHttp2(markets, priceResp) {
+  const start = now();
+  const changes = new Map(), additions = new Map(), removals = new Map();
+  const oldIds = new Set(markets.keys());
+
+  // compute keyset difference along the way
+  const priceRespCount = priceResp.length;
+  for (let i = 0; i < priceRespCount; i++) {
+    const pi = priceResp[i];
+    const mid = pi.symbol;
+    const market = markets.get(mid);
+    if (market) { // exists, possibly changed item
+      const c = marketChange(market, marketUpdatePriceItem(pi));
+      if (c) { changes.set(mid, c); }
+      oldIds.delete(mid);
+    } else { // added item
+      const newMarket = createMarketPriceItem(pi);
       additions.set(mid, newMarket);
     }
   }
@@ -579,6 +680,7 @@ function resetMarkets(newMarkets) {
 }
 
 // must always return a Promise to enable chained Promise fns
+// API ~2018 "Legacy API"
 function asyncUpdateMarkets() {
   return asyncFetchPoloniex(tickerEndpoint)
     .then((tickerResp) => {
@@ -586,6 +688,23 @@ function asyncUpdateMarkets() {
         updateMarkets(markets, marketsDiffHttp(markets, tickerResp));
       } else {
         resetMarkets(createMarkets(tickerResp));
+      }
+      // no return, not passing data further
+    })
+    .catch(skipFetchCancels);
+}
+
+
+// must always return a Promise to enable chained Promise fns
+// API 20220801
+// TODO: Dedup with Legacy API
+function asyncUpdateMarkets2() {
+  return asyncFetchPoloniex(priceEndpoint)
+    .then((priceResp) => {
+      if (markets) {
+        updateMarkets(markets, marketsDiffHttp2(markets, priceResp));
+      } else {
+        resetMarkets(createMarkets2(priceResp));
       }
       // no return, not passing data further
     })
@@ -634,9 +753,21 @@ const booksLoop = createPromiseLoop({
 
 // ### Data model / books / methods
 
+// API ~2018 "Legacy API"
 function asyncFetchBooks(market, depth = booksEndpoint.maxDepth) {
   const pair = market.base + "_" + market.quote;
   return asyncFetchPoloniex(booksEndpoint, { pair: pair, depth: depth })
+    .then((booksResp) => {
+      booksResp.market = market;
+      return booksResp;
+    });
+}
+
+// API 20220801
+// TODO: Dedup with Legacy API
+function asyncFetchBooks2(market, limit = books2Endpoint.limit) {
+  const symbol = market.base + "_" + market.quote;
+  return asyncFetchPoloniex(books2Endpoint, { symbol: symbol, limit: limit })
     .then((booksResp) => {
       booksResp.market = market;
       return booksResp;
@@ -650,13 +781,27 @@ function asyncFetchSelectedBooks() {
     return Promise.reject(new RequestIgnored(reason));
   }
   const market = markets.get(selectedMarketId);
-  return asyncFetchBooks(market);
+  return asyncFetchBooks2(market);
 }
 
 // must always return a Promise to enable chained Promise fns
+// API ~2018 "Legacy API"
 function asyncUpdateSelectedBooks() {
   return asyncFetchSelectedBooks()
     .then((books) => {
+      callMaybe(onbooksupdate, books);
+      // no return, not passing data further
+    })
+    .catch(skipFetchCancels);
+}
+
+// API 20220801
+// TODO: Dedup with Legacy API
+function asyncUpdateSelectedBooks2() {
+  return asyncFetchSelectedBooks()
+    .then((books) => {
+      books.bids = pairs(books.bids);
+      books.asks = pairs(books.asks);
       callMaybe(onbooksupdate, books);
       // no return, not passing data further
     })
@@ -782,9 +927,10 @@ function createMarketsTable(markets) {
   for (const market of marketsArr) {
     const row = marketsTbody.insertRow();
     row.dataset.id = market.id; // String = Number
-    if (!market.isActive) {
-      row.classList.add("inactive");
-    }
+    // TODO: POLOFIX: Restore market status tracking and display.
+    // if (!market.isActive) {
+    //  row.classList.add("inactive");
+    // }
     row.insertCell().appendChild(document.createTextNode(market.label));
     const td2 = row.insertCell();
     td2.appendChild(document.createTextNode(market.last));
@@ -888,7 +1034,7 @@ function marketsTableClick(e) {
   tr.classList.add("row-selected");
   const market = markets.get(selectedMarketId);
   setDocTitle(market.label, market.last);
-  asyncUpdateSelectedBooks();
+  asyncUpdateSelectedBooks2();
 }
 
 // ### UI / books / state
@@ -929,8 +1075,8 @@ function updateBooksUi(books) {
   const { market, bids, asks } = books;
   createTable(asksTbody, asks, [1, 0]);
   createTable(bidsTbody, bids);
-  setTickers(asksTable, market.quote);
-  setTickers(bidsTable, market.quote);
+  setTickers(asksTable, market.base);
+  setTickers(bidsTable, market.base);
   updateBooksBtn.disabled = false;
   updateBooksWsBtn.disabled = false;
   bumpBooksMetrics(now() - start, bids.length, asks.length, "UI: books updated");
@@ -970,11 +1116,11 @@ function autoupdateToggleClick(e) {
 function initUi() {
   updateMarketsBtn.disabled = false;
   updateMarketsBtn.onclick = (e) => {
-    asyncUpdateMarkets();
+    asyncUpdateMarkets2();
   };
 
   updateBooksBtn.onclick = (e) => {
-    asyncUpdateSelectedBooks();
+    asyncUpdateSelectedBooks2();
   };
 
   // generic WS endpoint events
