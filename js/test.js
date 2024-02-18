@@ -78,8 +78,12 @@ function genMarkets(nmarkets) {
   for (let i = 0; i < pairs.length; i++) {
     const pair = pairs[i];
     const [base, quote] = pair;
-    markets.set(i, {
-      id: i,
+    // TODO: Next line uses the newer "base_quote" formatting instead
+    // TODO: of "quote_base" used in Poloniex "Legacy" API.
+    // TODO: Fix the rest of this file to use terms "base" and "quote" correctly.
+    const id = base + "_" + quote;
+    markets.set(id, {
+      id: id,
       base: base,
       quote: quote,
       label: quote + "/" + base,
@@ -165,13 +169,13 @@ function goTestMode() {
   };
   console.log("'%s' button redirected to simulation code", updateMarketsBtn.value);
 
-  // globals used: asyncFetchBooksNoerr, markets, booksEndpoint, createTable, asksTbody, bidsTbody
-  asyncFetchBooksNoerr = (marketId) => {
-    const market = markets.get(marketId);
+  // globals used: asyncFetchBooks2, markets, booksEndpoint, createTable, asksTbody, bidsTbody
+  asyncFetchBooks2 = (market) => {
     const last = parseFloat(market.last);
     const books = genOrderBooks(last, booksEndpoint.maxDepth);
     createTable(asksTbody, books.asks, [1, 0]);
     createTable(bidsTbody, books.bids);
+    return Promise.reject(new RequestIgnored("local testing, no need a request"));
   };
-  console.log("'%s' function redirected to simulation code", "asyncFetchBooksNoerr");
+  console.log("'%s' function redirected to simulation code", "asyncFetchBooks2");
 }
