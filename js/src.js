@@ -1068,10 +1068,14 @@ function createTable(tbody, rows, order = [0, 1]) {
   }
 }
 
-function setTickers(table, base) {
-  table.querySelectorAll("th.base-ticker")
+function setTickers(table, market) {
+  table.querySelectorAll("thead .base-ticker")
     .forEach((el) => {
-      el.firstChild.nodeValue = base;
+      el.firstChild.nodeValue = market.base;
+    });
+  table.querySelectorAll("thead .quote-ticker")
+    .forEach((el) => {
+      el.firstChild.nodeValue = market.quote;
     });
 }
 
@@ -1082,8 +1086,8 @@ function updateBooksUi(books) {
   const { market, bids, asks } = books;
   createTable(asksTbody, asks, [1, 0]);
   createTable(bidsTbody, bids);
-  setTickers(asksTable, market.base);
-  setTickers(bidsTable, market.base);
+  setTickers(asksTable, market);
+  setTickers(bidsTable, market);
   updateBooksBtn.disabled = false;
   updateBooksWsBtn.disabled = false;
   bumpBooksMetrics(now() - start, bids.length, asks.length, "UI: books updated");
