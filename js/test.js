@@ -51,21 +51,21 @@ function genTickers(n, minlen, maxlen) {
   return tickers;
 }
 
-function genPairs(npairs, nbases) {
+function genPairs(npairs, nquotes) {
   // must be significantly greater than npairs to make fewer retries
-  const nquotes = npairs * 4;
-  const bases = Array.from(genTickers(nbases, 2, 3));
-  const quotes = Array.from(genTickers(nquotes, 2, 8));
-  const baseToQuotes = new Map(bases.map(b => [b, new Set()]));
+  const nbases = npairs * 4;
+  const bases = Array.from(genTickers(nbases, 2, 8));
+  const quotes = Array.from(genTickers(nquotes, 2, 3));
+  const quoteToBases = new Map(quotes.map(q => [q, new Set()]));
   for (let i = 0; i < npairs; i++) {
-    // take random base
-    const base = randomIndexElement(bases);
-    // and add a random element into its corresponding set
-    addUniqueElement(baseToQuotes.get(base), () => randomIndexElement(quotes));
+    // take random quote
+    const quote = randomIndexElement(quotes);
+    // and add a random base into its corresponding set
+    addUniqueElement(quoteToBases.get(quote), () => randomIndexElement(bases));
   }
   const pairs = [];
-  for (const [base, basesquotes] of baseToQuotes) {
-    for (const quote of basesquotes) {
+  for (const [quote, basesSet] of quoteToBases) {
+    for (const base of basesSet) {
       pairs.push([base, quote]);
     }
   }
@@ -78,15 +78,12 @@ function genMarkets(nmarkets) {
   for (let i = 0; i < pairs.length; i++) {
     const pair = pairs[i];
     const [base, quote] = pair;
-    // TODO: Next line uses the newer "base_quote" formatting instead
-    // TODO: of "quote_base" used in Poloniex "Legacy" API.
-    // TODO: Fix the rest of this file to use terms "base" and "quote" correctly.
     const id = base + "_" + quote;
     markets.set(id, {
       id: id,
       base: base,
       quote: quote,
-      label: quote + "/" + base,
+      label: base + "/" + quote,
       isActive: true,
       last: randomFloat(20000).toFixed(8),
     });

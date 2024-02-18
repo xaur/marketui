@@ -461,8 +461,16 @@ function marketUpdatePriceItem(pi) {
 
 // API ~2018 "Legacy API"
 function createMarket(id, name, tickerItem) {
-  const [base, quote] = name.split("_");
-  const m = { id, base, quote, label: quote + "/" + base };
+  // NOTE: The "Legacy" Poloniex API was confused about what is "base"
+  // and what is "quote" in a currency pair. In some places the API and
+  // its documentation use the terms correctly, while in others they are
+  // swapped. For example, `baseVolume` and `quoteVolume` in
+  // `returnTicker` endpoint are mixed up. We don't let this confusion
+  // propagate through our codebase and name our variables correctly.
+  // https://docs.legacy.poloniex.com/
+  // In "Legacy" API market symbol was formatted as "quote_base".
+  const [quote, base] = name.split("_");
+  const m = { id, base, quote, label: base + "/" + quote };
   if (tickerItem) {
     Object.assign(m, marketUpdate(tickerItem));
   }
@@ -473,8 +481,6 @@ function createMarket(id, name, tickerItem) {
 function createMarketPriceItem(pi) {
   const id = pi.symbol;
   const [base, quote] = id.split("_");
-  // TODO: This is the correct meaning of base and quote.
-  // TODO: The correct label is "base/quote". Fix it everywhere else.
   const m = { id, base, quote, label: base + "/" + quote };
   Object.assign(m, marketUpdatePriceItem(pi));
   return m;
@@ -755,7 +761,8 @@ const booksLoop = createPromiseLoop({
 
 // API ~2018 "Legacy API"
 function asyncFetchBooks(market, depth = booksEndpoint.maxDepth) {
-  const pair = market.base + "_" + market.quote;
+  // In "Legacy" API market symbol was formatted as "quote_base".
+  const pair = market.quote + "_" + market.base;
   return asyncFetchPoloniex(booksEndpoint, { pair: pair, depth: depth })
     .then((booksResp) => {
       booksResp.market = market;
@@ -1061,10 +1068,10 @@ function createTable(tbody, rows, order = [0, 1]) {
   }
 }
 
-function setTickers(table, quote) {
-  table.querySelectorAll("th.quote-ticker")
+function setTickers(table, base) {
+  table.querySelectorAll("th.base-ticker")
     .forEach((el) => {
-      el.firstChild.nodeValue = quote;
+      el.firstChild.nodeValue = base;
     });
 }
 
